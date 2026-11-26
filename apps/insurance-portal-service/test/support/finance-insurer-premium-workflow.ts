@@ -11,6 +11,7 @@ type Fixture = Pick<
   | 'deputy'
   | 'company'
   | 'scope'
+  | 'document'
   | 'contextPin'
   | 'today'
   | 'feeInput'
@@ -223,6 +224,52 @@ export async function exerciseInsurerPremium(f: Fixture) {
         )
       ).state,
     ).toBe('NO_MOVEMENT');
+    const note = await post(maker, 'customer-accounts', {
+      input: {
+        kind: 'DEBIT_NOTE',
+        reference: 'Insurer premium correction',
+        requestKey: randomUUID(),
+        date: f.today,
+        currency: 'TZS',
+        amount: '10.00',
+        tax: '0',
+        invoiceId: invoice.id,
+        customerId: f.feeInput.customer_id,
+        evidence: f.document,
+      },
+    });
+    await post(checker, 'customer-accounts/' + note.id + '/approve', {
+      reason: 'Confirmed premium correction',
+    });
+    const recorded = await post(
+      maker,
+      'customer-accounts/' + note.id + '/post',
+    );
+    expect(recorded).toMatchObject({ state: 'POSTED', journal_id: null });
+    const memoList = await call(
+      checker,
+      'foundation/gl/premium-memos?' + f.query + '&invoice=' + invoice.id,
+    );
+    const correction = memoList.find((x: { id: string }) => x.id === note.id);
+    expect(correction.event).toBe('DEBIT_NOTE');
+    const corrected = {
+      ...payload,
+      approvedAt: new Date().toISOString(),
+      movementId: randomUUID(),
+      run: 'PAA-REASSESS',
+      memoranda: [{ id: correction.id, hash: correction.hash }],
+    };
+    const adjust = await send(signed(corrected));
+    await approve(adjust.id, adjust.hash);
+    expect((await send(signed(corrected))).state).toBe('POSTED');
+    expect(
+      (
+        await db.query(
+          'SELECT memo_id FROM finance_ar_measurement_memos WHERE measurement_id=$1',
+          [corrected.movementId],
+        )
+      )[0].memo_id,
+    ).toBe(note.id);
   } finally {
     if (prior === undefined) delete process.env.FINANCE_IFRS17_MEASUREMENT_KEYS;
     else process.env.FINANCE_IFRS17_MEASUREMENT_KEYS = prior;

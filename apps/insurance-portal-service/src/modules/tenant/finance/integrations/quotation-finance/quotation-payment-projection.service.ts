@@ -1,3 +1,4 @@
+import { invoiceCashStatus } from '../../receivables/outstanding-balances/invoice-cash-status';
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 
@@ -37,8 +38,9 @@ export class QuotationPaymentProjectionService {
       return;
     }
 
+    const cashStatus = invoiceCashStatus(invoice);
     let eventType: QuotationFinanceEvent['eventType'];
-    switch (invoice.status) {
+    switch (cashStatus) {
       case InvoiceStatus.PAID:
       case InvoiceStatus.OVERPAID:
       case InvoiceStatus.PARTIALLY_PAID:
@@ -74,8 +76,8 @@ export class QuotationPaymentProjectionService {
     });
 
     if (
-      invoice.status === InvoiceStatus.PAID ||
-      invoice.status === InvoiceStatus.OVERPAID
+      cashStatus === InvoiceStatus.PAID ||
+      cashStatus === InvoiceStatus.OVERPAID
     ) {
       await this.quotationLifecycleService.markPaymentPaid(
         invoice.company_id,
@@ -98,7 +100,7 @@ export class QuotationPaymentProjectionService {
         invoice.id,
         actorId,
       );
-    } else if (invoice.status === InvoiceStatus.PARTIALLY_PAID) {
+    } else if (cashStatus === InvoiceStatus.PARTIALLY_PAID) {
       await this.quotationLifecycleService.markPartiallyPaid(
         invoice.company_id,
         invoice.source_record_id,

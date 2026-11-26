@@ -1,3 +1,4 @@
+import { invoiceCashStatus } from '../../receivables/outstanding-balances/invoice-cash-status';
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { InvoiceSourceType, InvoiceStatus } from '@insurance-max/contracts';
@@ -32,6 +33,7 @@ export class PolicyTransactionPaymentProjectionService {
       return;
     }
 
+    const cashStatus = invoiceCashStatus(invoice);
     const context = {
       changedBy: null,
       changedByType: 'SYSTEM',
@@ -49,8 +51,8 @@ export class PolicyTransactionPaymentProjectionService {
     };
 
     if (
-      invoice.status === InvoiceStatus.PAID ||
-      invoice.status === InvoiceStatus.OVERPAID
+      cashStatus === InvoiceStatus.PAID ||
+      cashStatus === InvoiceStatus.OVERPAID
     ) {
       await this.lifecycleService.markPaymentPaid(
         invoice.company_id,
@@ -66,7 +68,7 @@ export class PolicyTransactionPaymentProjectionService {
       return;
     }
 
-    if (invoice.status === InvoiceStatus.PARTIALLY_PAID) {
+    if (cashStatus === InvoiceStatus.PARTIALLY_PAID) {
       await this.lifecycleService.markPaymentPartial(
         invoice.company_id,
         invoice.source_record_id,

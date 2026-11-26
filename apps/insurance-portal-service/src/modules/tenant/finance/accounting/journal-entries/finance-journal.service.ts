@@ -271,6 +271,8 @@ export class FinanceJournalService {
     sourceEventId: string,
     userId: string | null,
   ) {
+    // Receipt vouchers credit the customer receivable, including unapplied cash.
+    const receiptRefund = Boolean(refund.receipt_id || refund.invoice_id);
     return this.postJournal(
       manager,
       refund.company_id,
@@ -282,11 +284,11 @@ export class FinanceJournalService {
         currencyCode: refund.currency_code,
         lines: [
           {
-            accountCode: refund.invoice_id ? '1200' : '2100',
-            accountName: refund.invoice_id
+            accountCode: receiptRefund ? '1200' : '2100',
+            accountName: receiptRefund
               ? 'Premium Receivables'
               : 'Customer Overpayments',
-            accountType: refund.invoice_id ? 'ASSET' : 'LIABILITY',
+            accountType: receiptRefund ? 'ASSET' : 'LIABILITY',
             customerId: refund.customer_id,
             debit: refund.amount,
           },

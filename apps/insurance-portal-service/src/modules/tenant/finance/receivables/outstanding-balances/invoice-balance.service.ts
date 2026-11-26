@@ -43,15 +43,23 @@ export class InvoiceBalanceService {
     const allocated = financialDecimal(allocationResult?.amount as string);
     const refunded = financialDecimal(refundResult?.amount as string);
     const writtenOff = financialDecimal(invoice.written_off_amount);
-    const total = financialDecimal(invoice.total_amount);
+    // The JSON projection also reads invoices created before the FIN-04 migration.
+    const [adjustment] = manager.query
+      ? await manager.query(
+          "SELECT to_jsonb(i)->>'ar_adjustment' amount FROM invoices i WHERE id=$1",
+          [invoice.id],
+        )
+      : [];
+    const original = financialDecimal(invoice.total_amount);
+    const total = original.plus(financialDecimal(adjustment?.amount ?? '0'));
     // A genuine customer credit is distinct from an inconsistent cash history.
     // Never hide an over-refund or invalid aggregate by clamping it to zero.
     if (
-      [allocated, refunded, writtenOff, total].some(
+      [allocated, refunded, writtenOff, original].some(
         (amount) => !amount.isFinite() || amount.isNegative(),
       ) ||
       refunded.greaterThan(allocated) ||
-      writtenOff.greaterThan(total)
+      (total.eq(original) && writtenOff.gt(original))
     )
       throw new ConflictException({
         code: 'FINANCE_BALANCE_RECONCILIATION_REQUIRED',
@@ -77,7 +85,10 @@ export class InvoiceBalanceService {
       invoice.status = effectivePaid.greaterThan(total)
         ? InvoiceStatus.OVERPAID
         : InvoiceStatus.PAID;
-    } else if (effectivePaid.greaterThan(0)) {
+    } else if (
+      effectivePaid.greaterThan(0) ||
+      (balance.lt(original) && balance.gt(0))
+    ) {
       invoice.status = InvoiceStatus.PARTIALLY_PAID;
     } else if (invoice.status !== InvoiceStatus.VOIDED) {
       invoice.status = InvoiceStatus.ISSUED;

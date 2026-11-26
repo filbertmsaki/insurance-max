@@ -21,7 +21,7 @@ const specs = {
   REFUND: [
     'REFUND_PAID',
     'CASH',
-    "SELECT r.refund_no reference,r.amount::text,r.currency_code currency,r.customer_id,r.paid_at at_time,r.settlement_account_code,coalesce(i.branch_id,t.branch_id) branch_id,coalesce(i.finance_dimensions,t.finance_dimensions) finance_dimensions FROM finance_refunds r LEFT JOIN receipts t ON t.id=r.receipt_id AND t.company_id=r.company_id LEFT JOIN invoices i ON i.id=coalesce(r.invoice_id,t.invoice_id) AND i.company_id=r.company_id WHERE r.company_id=$1 AND r.id=$2 AND r.status='PAID' FOR SHARE OF r",
+    "SELECT i.invoice_type,coalesce(r.invoice_id,t.invoice_id) billing_invoice_id,r.refund_no reference,r.amount::text,r.currency_code currency,r.customer_id,r.paid_at at_time,r.settlement_account_code,coalesce(i.branch_id,t.branch_id) branch_id,coalesce(i.finance_dimensions,t.finance_dimensions) finance_dimensions FROM finance_refunds r LEFT JOIN receipts t ON t.id=r.receipt_id AND t.company_id=r.company_id LEFT JOIN invoices i ON i.id=coalesce(r.invoice_id,t.invoice_id) AND i.company_id=r.company_id WHERE r.company_id=$1 AND r.id=$2 AND r.status='PAID' FOR SHARE OF r",
   ],
   COMMISSION_ACCRUAL: [
     'COMMISSION_ACCRUED',

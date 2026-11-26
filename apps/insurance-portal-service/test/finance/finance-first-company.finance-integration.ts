@@ -10,6 +10,7 @@ import { ReinsuranceRecoveryService } from '../../src/modules/tenant/reinsurance
 import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
 import { FinanceGlWorkflowsService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-workflows.service';
 import { exerciseGeneralLedger } from '../support/finance-general-ledger-workflow';
+import { exerciseCustomerAccounts } from '../support/finance-customer-accounts-workflow';
 import { exerciseTradePayables } from '../support/finance-trade-payables-workflow';
 import { exerciseInsurerPremium } from '../support/finance-insurer-premium-workflow';
 import { randomUUID } from 'node:crypto';
@@ -612,13 +613,22 @@ describe('FIN-01 first company through first live journals', () => {
                 width: 4,
                 reset: 'YEAR',
               })),
-              paymentTerms: ['CUSTOMER', 'SUPPLIER'].map((party) => ({
-                party,
-                code: party,
-                label: party,
-                days: party === 'SUPPLIER' ? 30 : 15,
-                isDefault: true,
-              })),
+              paymentTerms: [
+                ...['CUSTOMER', 'SUPPLIER'].map((party) => ({
+                  party,
+                  code: party,
+                  label: party,
+                  days: party === 'SUPPLIER' ? 30 : 15,
+                  isDefault: true,
+                })),
+                ...[0, 30, 60, 90, 120].map((days) => ({
+                  party: 'CUSTOMER',
+                  code: days ? 'NET' + days : 'DUE_NOW',
+                  label: 'Due in ' + days + ' days',
+                  days,
+                  isDefault: false,
+                })),
+              ],
               paymentMethods: [
                 {
                   method: 'CASH',
@@ -1246,8 +1256,24 @@ describe('FIN-01 first company through first live journals', () => {
             branch: branches[0].id,
             department: itDepartment.id,
           });
+          await exerciseCustomerAccounts({
+            call,
+            post,
+            maker,
+            checker,
+            deputy,
+            company,
+            scope,
+            today,
+            document,
+            db,
+            branch: branches[0].id,
+            department: itDepartment.id,
+            insurer,
+          });
           if (insurer)
             await exerciseInsurerPremium({
+              document,
               call,
               post,
               maker,

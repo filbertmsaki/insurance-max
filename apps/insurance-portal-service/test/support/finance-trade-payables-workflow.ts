@@ -953,6 +953,8 @@ export async function exerciseTradePayables(f: {
     ).toBe(0);
     const migration = new FinancePayablesCutoverAndCredits1799400000000();
     await db.transaction(async (manager) => {
+      // Rehearse the historical migration without altering constraints owned by later releases.
+      await manager.query('SAVEPOINT rehearsal');
       await migration.down(manager.queryRunner!);
       const [old] = await manager.query(
         'SELECT status FROM finance_ap_status WHERE id=$1',
@@ -960,6 +962,7 @@ export async function exerciseTradePayables(f: {
       );
       expect(old.status).toBe('POSTED');
       await migration.up(manager.queryRunner!);
+      await manager.query('ROLLBACK TO SAVEPOINT rehearsal');
     });
     await cash(
       await approve(

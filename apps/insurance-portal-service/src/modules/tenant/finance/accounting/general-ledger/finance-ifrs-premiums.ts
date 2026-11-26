@@ -250,6 +250,23 @@ export async function verifyMemoLinks(
     [book, p.memoranda.map((x) => x.id), p.date],
   );
   if (
+    memos.length < p.memoranda.length &&
+    (
+      await m.query(
+        "SELECT to_regclass('public.finance_ar_premium_memos') IS NOT NULL installed",
+      )
+    )[0].installed
+  ) {
+    const notes = await m.query(
+      `SELECT n.id,n.subject_hash,n.payload FROM finance_ar_premium_memos n
+      WHERE n.book_id=$1 AND n.id=ANY($2::uuid[]) AND n.accounting_date<=$3
+      AND NOT EXISTS(SELECT 1 FROM finance_ar_documents rev WHERE rev.related_id=n.id AND rev.kind='REVERSAL' AND rev.state='POSTED' AND rev.effective_date<=$3)
+      AND NOT EXISTS(SELECT 1 FROM finance_gl_premium_memos v WHERE v.book_id=n.book_id AND v.invoice_id=n.invoice_id AND v.event_type='VOIDED' AND v.accounting_date<=$3)`,
+      [book, p.memoranda.map((x) => x.id), p.date],
+    );
+    memos.push(...notes);
+  }
+  if (
     memos.length !== p.memoranda.length ||
     memos.some(
       (memo) =>

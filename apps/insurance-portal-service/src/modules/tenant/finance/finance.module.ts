@@ -9,6 +9,9 @@ import { FinancePaymentProvidersModule } from './integrations/payment-providers/
 import { FinanceSourceEvidenceModule } from './integrations/source-evidence/finance-source-evidence.module';
 import { FinancePayablesModule } from './payables/finance-payables.module';
 import { TradePayablesController } from './payables/trade-payables/trade-payables.controller';
+import { CustomerAccountsController } from './receivables/customer-accounts/customer-accounts.controller';
+import { CustomerAccountsService } from './receivables/customer-accounts/customer-accounts.service';
+import { CustomerReminderWorker } from './receivables/customer-accounts/customer-collections';
 import { TradePayablesService } from './payables/trade-payables/trade-payables.service';
 import { FinanceReceivablesModule } from './receivables/finance-receivables.module';
 import { FinanceReconciliationModule } from './reconciliation/finance-reconciliation.module';
@@ -39,8 +42,17 @@ import { FinanceReconciliationModule } from './reconciliation/finance-reconcilia
   ],
   // Kept here, not in FinanceFoundationModule, which must expose no routes
   // (CF14/JC16 resolve that module standalone and assert it has no controllers).
-  controllers: [FinanceFoundationController, TradePayablesController],
-  providers: [TradePayablesService],
+  controllers: [
+    FinanceFoundationController,
+    TradePayablesController,
+    CustomerAccountsController,
+  ],
+  providers: [
+    TradePayablesService,
+    CustomerAccountsService,
+    CustomerReminderWorker,
+    { provide: 'FIN04_POSTING', useExisting: CustomerAccountsService },
+  ],
   exports: [
     FinanceAccountingModule,
     FinanceReceivablesModule,

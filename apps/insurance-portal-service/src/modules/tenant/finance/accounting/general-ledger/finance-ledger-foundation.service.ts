@@ -4,6 +4,7 @@ import {
   Injectable,
   Optional,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { createHash } from 'node:crypto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -120,6 +121,7 @@ export class FinanceLedgerFoundationService {
     @Optional()
     @Inject(FINANCE_JOURNAL_DIMENSION_VERIFIER)
     private readonly dimensionVerifier: typeof verifyReviewedDimensionMaster = verifyReviewedDimensionMaster,
+    @Optional() private readonly modules?: ModuleRef,
   ) {}
 
   async scopes(user: { id: string; companyId?: string | null }) {
@@ -745,6 +747,7 @@ export class FinanceLedgerFoundationService {
           foundationFail(
             'Candidate account roles or debit/credit sides differ from the independently approved component posting rule.',
           );
+        let customerDocument: string | undefined;
         if (p.economicOrigin === 'FIN02_GL' || source.kind === 'BOOK_VOUCHER') {
           if (
             p.economicOrigin !== 'FIN02_GL' ||
@@ -782,6 +785,7 @@ export class FinanceLedgerFoundationService {
             [candidate.id],
           );
           if (!previous) await verifyGlPosting(c.manager, v);
+          customerDocument = v.snapshot.arDocumentId;
         }
         let nativeType: string | undefined;
         if (source.kind === 'OPERATING_DOCUMENT') {
@@ -1184,6 +1188,28 @@ export class FinanceLedgerFoundationService {
             subjectHash,
           ],
         );
+        if (customerDocument && input.mode === 'LIVE') {
+          const receiver = this.modules?.get<{
+            posted(
+              m: EntityManager,
+              book: string,
+              id: string,
+              candidate: string,
+              journal: string,
+            ): Promise<void>;
+          }>('FIN04_POSTING', { strict: false });
+          if (!receiver)
+            foundationFail(
+              'The customer accounting posting handler is unavailable.',
+            );
+          await receiver.posted(
+            c.manager,
+            c.ids[2],
+            customerDocument,
+            candidate.id,
+            journal.id,
+          );
+        }
         if (
           nativeType === 'INVOICE_WRITE_OFF' ||
           nativeType === 'INVOICE_WRITE_OFF_REVERSAL'

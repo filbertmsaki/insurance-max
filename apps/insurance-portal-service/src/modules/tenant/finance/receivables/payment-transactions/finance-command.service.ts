@@ -102,7 +102,7 @@ export class FinanceCommandService {
     return documentDimensionFields(this.dataSource.manager, companyId);
   }
 
-  private async publishInvoiceBalanceProjections(
+  async publishInvoiceBalanceProjections(
     manager: EntityManager,
     invoiceId: string,
     sourceEventId: string,
@@ -551,10 +551,21 @@ export class FinanceCommandService {
         payment.customer_id &&
         sourceInvoice &&
         sourceInvoice.customer_id !== payment.customer_id
-      )
-        throw new ConflictException(
-          'The receipt customer must match the invoice customer.',
+      ) {
+        const [mandate] = await manager.query(
+          'SELECT finance_ar_payer($1,$2,$3,$4,(statement_timestamp() AT TIME ZONE (finance_fin01_primary($1)).timezone)::date) allowed',
+          [
+            user.companyId,
+            payment.customer_id,
+            sourceInvoice.customer_id,
+            payment.currency,
+          ],
         );
+        if (!mandate?.allowed)
+          throw new ConflictException(
+            'The payer needs an approved mandate for this customer.',
+          );
+      }
       const resolvedCustomerId =
         payment.customer_id ?? sourceInvoice?.customer_id;
       if (!resolvedCustomerId) {
@@ -653,6 +664,7 @@ export class FinanceCommandService {
       invoiceId: string;
       amount: ReturnType<typeof DecimalUtil.value>;
       idempotencyKey: string;
+      arDocumentId?: string;
     },
   ) {
     const receipt = await manager
@@ -687,6 +699,36 @@ export class FinanceCommandService {
       throw new ConflictException('The receipt cannot be allocated.');
     }
 
+    const trackKey =
+      manager.query &&
+      (
+        await manager.query(
+          "SELECT to_regclass('public.finance_ar_allocation_keys') IS NOT NULL ready",
+        )
+      )?.[0]?.ready;
+    if (trackKey) {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        [receipt.company_id + '/' + params.idempotencyKey],
+      );
+      const [prior] = await manager.query(
+        'SELECT a.* FROM finance_ar_allocation_keys k JOIN receipt_allocations a ON a.id=k.allocation_id WHERE k.company_id=$1 AND k.request_key=$2',
+        [receipt.company_id, params.idempotencyKey],
+      );
+      if (prior) {
+        if (
+          prior.receipt_id !== receipt.id ||
+          prior.invoice_id !== invoice.id ||
+          !params.amount.eq(prior.amount)
+        )
+          throw new ConflictException(
+            'The allocation request key already identifies different details.',
+          );
+        return manager
+          .getRepository(ReceiptAllocation)
+          .create(prior as ReceiptAllocation);
+      }
+    }
     // Return an exact replay before checking balances/status changed by its first application.
     const allocationUnsigned = {
       receiptId: receipt.id,
@@ -744,6 +786,11 @@ export class FinanceCommandService {
       throw new BadRequestException('Allocation exceeds the invoice balance.');
     }
 
+    if (params.arDocumentId)
+      await manager.query(
+        "SELECT set_config('finance.ar_allocation',$1,true)",
+        [params.arDocumentId],
+      );
     const allocation = await manager.getRepository(ReceiptAllocation).save(
       manager.getRepository(ReceiptAllocation).create({
         company_id: user.companyId!,
@@ -758,19 +805,39 @@ export class FinanceCommandService {
       }),
     );
 
-    const savedInvoice = await this.invoiceBalanceService.recalculate(
+    if (trackKey)
+      await manager.query(
+        'INSERT INTO finance_ar_allocation_keys(company_id,request_key,allocation_id) VALUES($1,$2,$3)',
+        [receipt.company_id, params.idempotencyKey, allocation.id],
+      );
+    if (params.arDocumentId)
+      await manager.query("SELECT set_config('finance.ar_allocation','',true)");
+    await this.recalculateAllocationBalances(
       manager,
       invoice.id,
-    );
-    await this.receiptBalanceService.recalculate(manager, receipt.id);
-    await this.publishInvoiceBalanceProjections(
-      manager,
-      savedInvoice.id,
+      receipt.id,
       allocation.id,
       user.id,
     );
 
     return allocation;
+  }
+
+  async recalculateAllocationBalances(
+    manager: EntityManager,
+    invoiceId: string,
+    receiptId: string,
+    event: string,
+    actor: string | null,
+  ) {
+    await this.invoiceBalanceService.recalculate(manager, invoiceId);
+    await this.receiptBalanceService.recalculate(manager, receiptId);
+    await this.publishInvoiceBalanceProjections(
+      manager,
+      invoiceId,
+      event,
+      actor,
+    );
   }
 
   async reverseAllocation(
@@ -905,6 +972,7 @@ export class FinanceCommandService {
   async requestRefund(user: AuthenticatedUser, dto: RequestRefundDto) {
     return this.dataSource.transaction(async (manager) => {
       const receipt = await manager.getRepository(Receipt).findOne({
+        lock: { mode: 'pessimistic_write' },
         where: {
           id: dto.receipt_id,
           company_id: user.companyId!,
@@ -920,12 +988,38 @@ export class FinanceCommandService {
         throw new NotFoundException('Posted receipt was not found.');
       }
 
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        ['refund/' + receipt.company_id + '/' + dto.idempotency_key],
+      );
+      const existing = await manager.getRepository(FinanceRefund).findOneBy({
+        company_id: user.companyId!,
+        idempotency_key: dto.idempotency_key,
+      });
+      if (existing) {
+        if (
+          existing.receipt_id !== receipt.id ||
+          existing.invoice_id !== (dto.invoice_id ?? null) ||
+          !DecimalUtil.value(existing.amount).eq(dto.amount) ||
+          existing.reason !== dto.reason.trim()
+        )
+          throw new ConflictException(
+            'This refund request key belongs to different details.',
+          );
+        return existing;
+      }
       const previouslyRefunded = await manager
         .getRepository(FinanceRefund)
         .createQueryBuilder('refund')
         .select(`COALESCE(SUM(refund.amount), 0)`, 'amount')
         .where('refund.receipt_id = :receiptId', { receiptId: receipt.id })
-        .andWhere('refund.status = :status', { status: RefundStatus.PAID })
+        .andWhere('refund.status IN (:...states)', {
+          states: [
+            RefundStatus.REQUESTED,
+            RefundStatus.APPROVED,
+            RefundStatus.PAID,
+          ],
+        })
         .getRawOne<{ amount: string }>();
 
       const available = DecimalUtil.value(receipt.amount).minus(
@@ -954,7 +1048,7 @@ export class FinanceCommandService {
       return manager.getRepository(FinanceRefund).save({
         company_id: user.companyId!,
         refund_no: refundNo,
-        customer_id: receipt.payer_customer_id,
+        customer_id: receipt.payer_customer_id ?? receipt.customer_id,
         invoice_id: dto.invoice_id ?? null,
         receipt_id: receipt.id,
         payment_transaction_id: receipt.payment_transaction_id,

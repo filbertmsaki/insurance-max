@@ -30,7 +30,15 @@ export class ReceiptBalanceService {
       .getRawOne<{ amount: string }>();
 
     const allocated = financialDecimal(allocationResult?.amount as string);
-    const amount = financialDecimal(receipt.amount);
+    const [refund] = manager.query
+      ? await manager.query(
+          "SELECT to_jsonb(r)->>'ar_cash_refunded' amount FROM receipts r WHERE id=$1",
+          [receipt.id],
+        )
+      : [];
+    const amount = financialDecimal(receipt.amount).minus(
+      financialDecimal(refund?.amount ?? '0'),
+    );
     if (
       [amount, allocated].some(
         (value) => !value.isFinite() || value.isNegative(),

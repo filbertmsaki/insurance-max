@@ -126,6 +126,23 @@ export async function applyWriteOff(
     throw new ConflictException(
       'The originating invoice write-off is unavailable.',
     );
+  if (
+    !reverse &&
+    (
+      await m.query(
+        "SELECT to_regclass('public.finance_ar_documents') IS NOT NULL installed",
+      )
+    )[0].installed
+  ) {
+    const [allowance] = await m.query(
+      "SELECT coalesce(sum((data->>'target')::numeric),0) balance FROM finance_ar_documents WHERE invoice_id=$1 AND state='POSTED'",
+      [w.invoice_id],
+    );
+    if (DecimalUtil.value(allowance.balance).gt(0))
+      throw new ConflictException(
+        'Use the customer write-off workflow to consume the recorded loss allowance.',
+      );
+  }
   const [i] = await m.query(
     'SELECT balance_amount,written_off_amount,status FROM invoices WHERE company_id=$1 AND id=$2 FOR UPDATE',
     [company, w.invoice_id],

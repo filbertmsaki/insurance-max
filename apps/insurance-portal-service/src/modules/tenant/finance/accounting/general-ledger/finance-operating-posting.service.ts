@@ -238,6 +238,20 @@ export class FinanceOperatingPostingService {
       kind === 'RECEIPT' &&
       doc.invoice_type === 'PREMIUM' &&
       usesInsuranceMeasurement(book);
+    const premiumRefund =
+      kind === 'REFUND' &&
+      doc.invoice_type === 'PREMIUM' &&
+      usesInsuranceMeasurement(book);
+    const premiumReceiptRoles = premiumRefund
+      ? config.allowedComponents
+          .filter(
+            (c) =>
+              c.origin === 'INSURANCE_PORTAL_FINANCE' &&
+              c.owner === 'FINANCE' &&
+              c.sourceEventType === 'PREMIUM_RECEIPT_POSTED',
+          )
+          .flatMap((c) => c.creditRoles)
+      : [];
     const postingEvent = premiumCash ? 'PREMIUM_RECEIPT_POSTED' : event;
     let premiumMemoId: string | undefined;
     if (premiumCash) {
@@ -363,9 +377,11 @@ export class FinanceOperatingPostingService {
       const eligible = roles.filter(
         (r) =>
           allowed.includes(r.code) &&
-          (premiumCash && cr.units > 0n
-            ? ['ASSET', 'LIABILITY'].includes(r.accountType)
-            : r.accountType === line.accountType),
+          (premiumRefund && dr.units > 0n
+            ? premiumReceiptRoles.includes(r.code)
+            : premiumCash && cr.units > 0n
+              ? ['ASSET', 'LIABILITY'].includes(r.accountType)
+              : r.accountType === line.accountType),
       );
       const cashLine =
         kind === 'RECEIPT'
@@ -389,7 +405,7 @@ export class FinanceOperatingPostingService {
           : eligible;
       const exact = eligible.filter((r) => r.accountCode === code);
       const choices =
-        premiumCash && cr.units > 0n
+        (premiumCash && cr.units > 0n) || (premiumRefund && dr.units > 0n)
           ? candidates
           : exact.length ||
               cashLine ||
@@ -630,24 +646,28 @@ export class FinanceOperatingPostingService {
         throw new ForbiddenException(
           'Only the original preparer can renew this accounting request.',
         );
-      const [ap] =
+      const [origin] =
         r.state === 'REJECTED_INACTIVE' && r.source_type.startsWith('GL_')
           ? await m.query(
-              "SELECT 1 FROM finance_operating_postings WHERE candidate_id=$1 AND snapshot ? 'apDocumentId'",
+              "SELECT snapshot ? 'arDocumentId' customer FROM finance_operating_postings WHERE candidate_id=$1 AND snapshot ?| array['apDocumentId','arDocumentId']",
               [id],
             )
           : [];
-      if (ap) {
+      if (origin) {
         const [document] = await m.query(
-          "SELECT id FROM finance_ap_records WHERE candidate_id=$1 AND book_id=$2 AND state='APPROVED'",
+          origin.customer
+            ? "SELECT id FROM finance_ar_documents WHERE candidate_id=$1 AND book_id=$2 AND state='APPROVED'"
+            : "SELECT id FROM finance_ap_records WHERE candidate_id=$1 AND book_id=$2 AND state='APPROVED'",
           [id, scope.bookId],
         );
         if (!document)
-          throw new ConflictException('This AP document was withdrawn.');
+          throw new ConflictException(
+            'The originating finance document was withdrawn.',
+          );
       }
       if (
         r.state === 'REJECTED_INACTIVE' &&
-        (!r.source_type.startsWith('GL_') || ap)
+        (!r.source_type.startsWith('GL_') || origin)
       ) {
         const book = await activePostingBook(m, actor.sourceCompanyId!);
         if (!book || book.book_id !== scope.bookId)

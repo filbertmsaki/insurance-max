@@ -670,11 +670,21 @@ export class FinanceGlWorkflowsService {
       'Read premium billing memoranda',
       async ({ manager: m }) => {
         const b = await workflowBook(m, a, s, true);
+        const hasNotes = (
+          await m.query(
+            "SELECT to_regclass('public.finance_ar_premium_memos') IS NOT NULL installed",
+          )
+        )[0].installed;
+        const notes = hasNotes
+          ? `UNION ALL SELECT n.id,n.invoice_id,d.kind,n.accounting_date::text,n.subject_hash,'AR-'||d.sequence,d.amount::text,d.currency,
+          (SELECT count(*)::int FROM finance_ar_measurement_memos l WHERE l.memo_id=n.id),d.created_at
+          FROM finance_ar_premium_memos n JOIN finance_ar_documents d ON d.id=n.id WHERE n.book_id=$1 AND ($2::text IS NULL OR n.invoice_id::text=$2 OR 'AR-'||d.sequence=$2)`
+          : '';
         return m.query(
-          `SELECT m.id,m.invoice_id AS "invoiceId",m.event_type AS event,m.accounting_date::text AS date,m.subject_hash AS hash,m.payload->>'reference' AS reference,m.payload->>'amount' AS amount,m.payload->>'currency' AS currency,
-        (SELECT count(*)::int FROM finance_gl_measurement_memos link WHERE link.memo_id=m.id) AS movements
+          `SELECT id,"invoiceId",event,date,hash,reference,amount,currency,movements FROM (SELECT m.id,m.invoice_id AS "invoiceId",m.event_type AS event,m.accounting_date::text AS date,m.subject_hash AS hash,m.payload->>'reference' AS reference,m.payload->>'amount' AS amount,m.payload->>'currency' AS currency,
+        (SELECT count(*)::int FROM finance_gl_measurement_memos link WHERE link.memo_id=m.id) AS movements,m.created_at
         FROM finance_gl_premium_memos m WHERE m.book_id=$1 AND ($2::text IS NULL OR m.invoice_id::text=$2 OR m.payload->>'reference'=$2)
-        ORDER BY m.created_at DESC,m.id DESC LIMIT 100`,
+        ${notes}) memos ORDER BY created_at DESC,id DESC LIMIT 100`,
           [b.book_id, invoice || null],
         );
       },
@@ -765,10 +775,16 @@ export class FinanceGlWorkflowsService {
           throw new ConflictException(
             'This measurement movement or run component is already recorded.',
           );
-        await m.query(
-          'INSERT INTO finance_gl_measurement_memos(measurement_id,memo_id) SELECT $1,unnest($2::uuid[])',
-          [p.movementId, p.memoranda.map((x) => x.id)],
+        const pins = p.memoranda.map((x) => x.id);
+        const originals = await m.query(
+          'INSERT INTO finance_gl_measurement_memos(measurement_id,memo_id) SELECT $1,id FROM finance_gl_premium_memos WHERE book_id=$3 AND id=ANY($2::uuid[]) RETURNING memo_id',
+          [p.movementId, pins, b.book_id],
         );
+        if (originals.length < pins.length)
+          await m.query(
+            'INSERT INTO finance_ar_measurement_memos(measurement_id,memo_id) SELECT $1,id FROM finance_ar_premium_memos WHERE book_id=$3 AND id=ANY($2::uuid[])',
+            [p.movementId, pins, b.book_id],
+          );
         if (!p.lines.length)
           return { id: p.movementId, hash: digest, state: 'NO_MOVEMENT' };
         const v = await voucherLines(

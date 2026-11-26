@@ -22,6 +22,7 @@ interface Source {
   kind:
     | 'REFUND'
     | 'COMMISSION_PAYMENT'
+    | 'AR_CREDIT_REFUND'
     | 'AP_PAYMENT'
     | 'AP_SUPPLIER_REFUND'
     | 'AP_IMPREST_RETURN'
@@ -75,7 +76,7 @@ export async function verifyBankSettlement(
   const held = () =>
     new ServiceUnavailableException({
       code:
-        s.kind === 'REFUND'
+        s.kind === 'REFUND' || s.kind === 'AR_CREDIT_REFUND'
           ? 'VERIFIED_REFUND_SETTLEMENT_REQUIRED'
           : s.kind === 'COMMISSION_PAYMENT'
             ? 'VERIFIED_COMMISSION_SETTLEMENT_REQUIRED'
