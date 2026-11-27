@@ -719,6 +719,12 @@ describe('FIN-01 first company through first live journals', () => {
                 ...(cashOnly
                   ? [
                       {
+                        method: 'EFT',
+                        direction: 'OUTGOING',
+                        accountCode: '112002',
+                        referenceRequired: true,
+                      },
+                      {
                         method: 'MOBILE_MONEY',
                         direction: 'INCOMING',
                         accountCode: '112005',

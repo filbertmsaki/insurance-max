@@ -30,6 +30,7 @@ export interface Document {
   kind: Kind;
   reference: string;
   input: Input;
+  eft_export: Record<string, string> | null;
   candidate_id: string | null;
   journal_id: string | null;
 }

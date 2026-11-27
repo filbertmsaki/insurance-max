@@ -150,7 +150,7 @@ async function statement(c: Context, id: unknown) {
     'SELECT s.*,s.starts::text,s.ends::text FROM finance_cb_statements s JOIN finance_cb_accounts a ON a.id=s.account_id WHERE s.id=$1 AND a.book_id=$2 FOR UPDATE OF s',
     [uuid(id), c.b.book_id],
   );
-  if (!s || s.signoff_id)
+  if (!s || s.signoff_id || s.withdrawn_id)
     conflict('Select an unsigned bank statement from this book.');
   return s;
 }
@@ -160,16 +160,77 @@ export async function statementLine(
   linkedEntry?: string,
 ) {
   const [s] = await c.m.query(
-    `SELECT l.*,l.day::text,s.account_id,s.signoff_id,x.entry_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_accounts a ON a.id=s.account_id LEFT JOIN finance_cb_matches x ON x.line_id=l.id WHERE l.id=$1 AND a.book_id=$2 FOR UPDATE OF l`,
+    `SELECT l.*,l.day::text,s.account_id,s.signoff_id,s.withdrawn_id,(m.entry_ids)[1] entry_id,cardinality(m.entry_ids) match_count,p.id proof_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_accounts a ON a.id=s.account_id LEFT JOIN LATERAL (SELECT array_agg(x.entry_id ORDER BY x.entry_id) entry_ids FROM finance_cb_matches x WHERE x.line_id=l.id)m ON true LEFT JOIN finance_cb_ap_proofs p ON p.line_id=l.id AND p.released_id IS NULL WHERE l.id=$1 AND a.book_id=$2 FOR UPDATE OF l,s`,
     [uuid(id), c.b.book_id],
   );
   if (
     !s ||
+    s.withdrawn_id ||
+    s.proof_id ||
     ((s.signoff_id || s.entry_id) &&
-      (!linkedEntry || s.entry_id !== linkedEntry))
+      (!linkedEntry || s.match_count !== 1 || s.entry_id !== linkedEntry))
   )
     conflict('Select an unmatched line on an unsigned statement in this book.');
   return s;
+}
+async function removeMatches(c: Context, lines: string[]) {
+  await c.m.query(
+    `WITH removed AS (DELETE FROM finance_cb_matches WHERE line_id=ANY($1::uuid[]) RETURNING entry_id)
+    UPDATE finance_cb_cheques ch SET state='PRESENTED' FROM removed x JOIN finance_cb_entries e ON e.id=x.entry_id JOIN finance_cb_documents d ON d.journal_id=e.journal_id WHERE ch.id=d.id AND ch.state='CLEARED'`,
+    [lines],
+  );
+}
+async function archiveStatement(c: Context, id: string, decision: string) {
+  await c.m.query(
+    `UPDATE finance_cb_statements SET withdrawn_id=$2,archived_lines=(
+    SELECT coalesce(jsonb_agg(to_jsonb(l)||jsonb_build_object('matches',(SELECT coalesce(jsonb_agg(to_jsonb(mx)),'[]') FROM finance_cb_matches mx WHERE mx.line_id=l.id)) ORDER BY l.ordinal),'[]')
+    FROM finance_cb_statement_lines l WHERE l.statement_id=$1) WHERE id=$1`,
+    [id, decision],
+  );
+}
+async function finishWithdrawal(c: Context, id: string, replacement?: string) {
+  // Preserve the identity of unchanged bank evidence, including entries already posted from it.
+  const rows: {
+    old_id: string;
+    new_id: string | null;
+    ordinal: number;
+    description: string;
+    protected: boolean;
+    suggested_kind: string;
+    suggested_role: string;
+  }[] = await c.m.query(
+    `
+    WITH numbered AS (SELECT l.*,row_number() OVER(PARTITION BY statement_id,day,amount,upper(trim(reference)),upper(trim(description)) ORDER BY ordinal) n
+      FROM finance_cb_statement_lines l WHERE statement_id=$1 OR statement_id=$2)
+    SELECT old.id old_id,fresh.id new_id,fresh.ordinal,fresh.description,fresh.suggested_kind,fresh.suggested_role,
+      (EXISTS(SELECT 1 FROM finance_cb_ap_proofs p WHERE p.line_id=old.id AND p.released_id IS NULL) OR EXISTS(
+        SELECT 1 FROM finance_cb_documents d WHERE d.book_id=$3 AND d.kind IN ('FEE','INTEREST','EFT_SETTLE','EFT_LINK') AND lower(d.input->'fields'->>'line')=old.id::text
+        AND d.state IN ('APPROVED','POSTED') AND NOT EXISTS(SELECT 1 FROM finance_foundation_journals j WHERE j.reversal_of=d.journal_id AND j.mode='LIVE'))) protected
+      FROM numbered old LEFT JOIN numbered fresh ON fresh.statement_id=$2 AND (fresh.day,fresh.amount,upper(trim(fresh.reference)),upper(trim(fresh.description)),fresh.n)=(old.day,old.amount,upper(trim(old.reference)),upper(trim(old.description)),old.n)
+      WHERE old.statement_id=$1`,
+    [id, replacement ?? null, c.b.book_id],
+  );
+  if (rows.some((x) => !x.new_id && x.protected))
+    conflict(
+      'Replace this statement with a file retaining each verified or posted bank movement, or resolve its posting first.',
+    );
+  const removed = rows.filter((x) => !x.new_id);
+  if (removed.length)
+    await removeMatches(
+      c,
+      removed.map((x) => x.old_id),
+    );
+  if (!replacement) return;
+  const kept = rows.filter((x) => x.new_id);
+  await c.m.query(
+    'DELETE FROM finance_cb_statement_lines WHERE id=ANY($1::uuid[])',
+    [kept.map((x) => x.new_id)],
+  );
+  await c.m.query(
+    `UPDATE finance_cb_statement_lines l SET statement_id=$1,ordinal=x.ordinal,description=x.description,suggested_kind=x.suggested_kind,suggested_role=x.suggested_role
+    FROM jsonb_to_recordset($2::jsonb) x(old_id uuid,ordinal integer,description text,suggested_kind text,suggested_role text) WHERE l.id=x.old_id`,
+    [replacement, JSON.stringify(kept)],
+  );
 }
 async function importStatement(c: Context, r: Document, ac: Account) {
   const f = r.input.fields,
@@ -181,8 +242,20 @@ async function importStatement(c: Context, r: Document, ac: Account) {
     bad('Use a bank or wallet and a valid statement period.');
   const op = money(f.opening, scale, true),
     cl = money(f.closing, scale, true);
+  const previous = f.replaces ? await statement(c, f.replaces) : null;
+  if (previous) {
+    if (previous.account_id !== ac.id)
+      conflict('Replace a statement on the same account.');
+    await archiveStatement(c, previous.id, r.id);
+  }
+  const [prior] = await m.query(
+    'SELECT closing FROM finance_cb_statements WHERE account_id=$1 AND ends=($2::date-1) AND signoff_id IS NOT NULL',
+    [ac.id, start],
+  );
+  if (prior && !op.eq(prior.closing))
+    conflict('Use the closing balance from the preceding signed statement.');
   const [overlap] = await m.query(
-    'SELECT id FROM finance_cb_statements WHERE account_id=$1 AND starts<=$3 AND ends>=$2',
+    'SELECT id FROM finance_cb_statements WHERE account_id=$1 AND withdrawn_id IS NULL AND starts<=$3 AND ends>=$2',
     [ac.id, start, end],
   );
   if (overlap)
@@ -244,30 +317,38 @@ async function importStatement(c: Context, r: Document, ac: Account) {
     UPDATE finance_cb_statement_lines l SET suggested_kind=s.kind,suggested_role=s.role FROM suggestions s WHERE s.id=l.id`,
     [r.id, ac.id],
   );
+  if (previous) await finishWithdrawal(c, previous.id, r.id);
 }
 export async function match(
   c: Context,
   lineId: string,
-  entryId: string,
+  entryId: string | string[],
   decision: string,
 ) {
   const l = await statementLine(c, lineId);
-  const [e] = await c.m.query(
-    'SELECT e.id,e.amount,e.day::text,s.ends::text finish FROM finance_cb_entries e JOIN finance_cb_statements s ON s.id=$3 AND s.account_id=e.account_id WHERE e.id=$1 AND e.account_id=$2 AND e.offset_id IS NULL AND NOT EXISTS(SELECT 1 FROM finance_cb_matches m WHERE m.entry_id=e.id)',
-    [uuid(entryId), l.account_id, l.statement_id],
+  const ids = (Array.isArray(entryId) ? entryId : [entryId]).map(uuid);
+  if (!ids.length || new Set(ids).size !== ids.length)
+    bad('Choose distinct cashbook entries.');
+  const [eligible] = await c.m.query(
+    `SELECT count(*)::int count, sum(amount) total FROM (SELECT e.amount FROM finance_cb_entries e JOIN finance_cb_statements s ON s.id=$3 AND s.account_id=e.account_id
+       WHERE e.id=ANY($1::uuid[]) AND e.account_id=$2 AND e.day<=s.ends AND e.offset_id IS NULL AND NOT EXISTS(SELECT 1 FROM finance_cb_matches m WHERE m.entry_id=e.id)
+       ORDER BY e.id FOR UPDATE OF e) entries`,
+    [ids, l.account_id, l.statement_id],
   );
-  if (!e || e.day > e.finish || !new Decimal(e.amount).eq(l.amount))
+  if (
+    eligible.count !== ids.length ||
+    !new Decimal(eligible.total).eq(l.amount)
+  )
     conflict(
-      'Match an unused entry on the same account with the same signed amount.',
+      'Choose unused entries from this account whose signed total equals the bank line.',
     );
-  await c.m.query('INSERT INTO finance_cb_matches VALUES($1,$2,$3)', [
-    l.id,
-    e.id,
-    decision,
-  ]);
   await c.m.query(
-    "UPDATE finance_cb_cheques q SET state='CLEARED' FROM finance_cb_documents d JOIN finance_cb_entries e ON e.journal_id=d.journal_id WHERE q.id=d.id AND e.id=$1 AND q.state IN ('ISSUED','PRESENTED')",
-    [e.id],
+    'INSERT INTO finance_cb_matches(line_id,entry_id,decision_id) SELECT $1,entry,$3 FROM unnest($2::uuid[]) entry',
+    [l.id, ids, decision],
+  );
+  await c.m.query(
+    "UPDATE finance_cb_cheques q SET state='CLEARED' FROM finance_cb_documents d JOIN finance_cb_entries e ON e.journal_id=d.journal_id WHERE q.id=d.id AND e.id=ANY($1::uuid[]) AND q.state IN ('ISSUED','PRESENTED')",
+    [ids],
   );
 }
 export async function reconciliationSummary(c: Context, id: string) {
@@ -276,6 +357,8 @@ export async function reconciliationSummary(c: Context, id: string) {
     [uuid(id), c.b.book_id],
   );
   if (!s) bad('Choose a statement in this book.');
+  if (s.withdrawn_id)
+    conflict('This statement has been withdrawn. Select its replacement.');
   if (s.signoff_id) return s.summary;
   const [t] = await c.m.query(
     `WITH e AS (SELECT e.*,(EXISTS(SELECT 1 FROM finance_cb_documents off WHERE off.id=e.offset_id AND off.day<=$3) OR EXISTS(SELECT 1 FROM finance_cb_matches x JOIN finance_cb_statement_lines l ON l.id=x.line_id JOIN finance_cb_statements st ON st.id=l.statement_id WHERE x.entry_id=e.id AND st.ends<=$3)) cleared FROM finance_cb_entries e WHERE e.account_id=$1 AND e.day<=$3)
@@ -307,6 +390,20 @@ export async function statementOperation(c: Context, r: Document) {
     f = r.input.fields;
   if (r.kind === 'STATEMENT')
     return importStatement(c, r, await account(c, f.account));
+  if (r.kind === 'WITHDRAW_STATEMENT') {
+    const s = await statement(c, f.statement);
+    if (r.day < s.ends) bad('Withdrawal cannot precede the statement end.');
+    field(f.description, 'withdrawal reason', 700);
+    await archiveStatement(c, s.id, r.id);
+    await finishWithdrawal(c, s.id);
+    return;
+  }
+  if (r.kind === 'GROUP_MATCH') {
+    const entries = field(f.entries, 'cashbook entries', 100000).split(',');
+    if (entries.length < 2)
+      bad('Select at least two entries for a grouped match.');
+    return match(c, f.line, entries, r.id);
+  }
   if (r.kind === 'END_RULE') {
     const deleted = await m.query(
       `WITH removed AS (DELETE FROM finance_cb_rules r USING finance_cb_accounts a WHERE r.account_id=a.id AND a.book_id=$1 AND r.decision_id=$2 RETURNING r.decision_id) SELECT * FROM removed`,
@@ -356,22 +453,26 @@ export async function statementOperation(c: Context, r: Document) {
   }
   if (r.kind === 'UNMATCH') {
     const [x] = await m.query(
-      'SELECT l.id,s.id statement_id,m.entry_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_matches m ON m.line_id=l.id WHERE l.id=$1',
+      'SELECT l.statement_id FROM finance_cb_statement_lines l JOIN finance_cb_matches mx ON mx.line_id=l.id WHERE l.id=$1',
       [uuid(f.line)],
     );
     if (!x) conflict('Choose a matched statement line.');
     await statement(c, x.statement_id);
-    await m.query('DELETE FROM finance_cb_matches WHERE line_id=$1', [x.id]);
-    await m.query(
-      "UPDATE finance_cb_cheques q SET state='PRESENTED' FROM finance_cb_documents d JOIN finance_cb_entries e ON e.journal_id=d.journal_id WHERE q.id=d.id AND e.id=$1 AND q.state='CLEARED'",
-      [x.entry_id],
+    const [proof] = await m.query(
+      'SELECT id FROM finance_cb_ap_proofs WHERE line_id=$1 AND released_id IS NULL',
+      [f.line],
     );
+    if (proof)
+      conflict(
+        'This debit verifies a posted payable. Retain its link to the voucher.',
+      );
+    await removeMatches(c, [f.line]);
     return;
   }
   const s = await statement(c, f.statement);
   if (r.kind === 'AUTO_MATCH') {
     await m.query(
-      `WITH pairs AS (SELECT l.id line,e.id entry,count(*) OVER(PARTITION BY l.id) n,count(*) OVER(PARTITION BY e.id) uses FROM finance_cb_statement_lines l JOIN finance_cb_entries e ON e.account_id=$2 AND e.offset_id IS NULL AND e.day<=$3 AND e.amount=l.amount AND upper(trim(e.reference))=upper(trim(l.reference)) WHERE l.statement_id=$1 AND NOT EXISTS(SELECT 1 FROM finance_cb_matches x WHERE x.line_id=l.id OR x.entry_id=e.id)),
+      `WITH pairs AS (SELECT l.id line,e.id entry,count(*) OVER(PARTITION BY l.id) n,count(*) OVER(PARTITION BY e.id) uses FROM finance_cb_statement_lines l JOIN finance_cb_entries e ON e.account_id=$2 AND e.offset_id IS NULL AND e.day<=$3 AND e.amount=l.amount AND upper(trim(e.reference))=upper(trim(l.reference)) WHERE l.statement_id=$1 AND NOT EXISTS(SELECT 1 FROM finance_cb_ap_proofs p WHERE p.line_id=l.id AND p.released_id IS NULL) AND NOT EXISTS(SELECT 1 FROM finance_cb_matches x WHERE x.line_id=l.id OR x.entry_id=e.id)),
       matched AS (INSERT INTO finance_cb_matches(line_id,entry_id,decision_id) SELECT line,entry,$4 FROM pairs WHERE n=1 AND uses=1 RETURNING entry_id)
       UPDATE finance_cb_cheques q SET state='CLEARED' FROM matched m JOIN finance_cb_entries e ON e.id=m.entry_id JOIN finance_cb_documents d ON d.journal_id=e.journal_id WHERE q.id=d.id AND q.state IN ('ISSUED','PRESENTED')`,
       [s.id, s.account_id, s.ends, r.id],
@@ -379,7 +480,7 @@ export async function statementOperation(c: Context, r: Document) {
     return;
   }
   const [chain] = await m.query(
-    `SELECT a.starts::text activation,p.ends IS NULL first,p.signoff_id signed,p.closing prev,(p.ends+1)::text next FROM finance_cb_accounts a LEFT JOIN LATERAL(SELECT * FROM finance_cb_statements WHERE account_id=a.id AND ends<$2 ORDER BY ends DESC LIMIT 1)p ON true WHERE a.id=$1`,
+    `SELECT a.starts::text activation,p.ends IS NULL first,p.signoff_id signed,p.closing prev,(p.ends+1)::text next FROM finance_cb_accounts a LEFT JOIN LATERAL(SELECT * FROM finance_cb_statements WHERE account_id=a.id AND withdrawn_id IS NULL AND ends<$2 ORDER BY ends DESC LIMIT 1)p ON true WHERE a.id=$1`,
     [s.account_id, s.starts],
   );
   if (

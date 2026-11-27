@@ -89,6 +89,39 @@ function Table({ columns, rows }: { columns: string[]; rows: ReactNode[][] }) {
   );
 }
 const value = (n: unknown) => (n == null ? '—' : amountLabel(String(n)));
+function movementLabel(row: CashRow) {
+  return [
+    row.day,
+    row.code,
+    row.reference,
+    [row.currency, value(row.amount)].filter(Boolean).join(' '),
+  ]
+    .filter(Boolean)
+    .join(' / ');
+}
+function reviewField(w: CashData, key: string, raw: string) {
+  if (key === 'entries' || key === 'entry')
+    return (
+      <ul>
+        {raw.split(',').map((id) => {
+          const entry = w.entries.find((x) => x.id === id);
+          return <li key={id}>{entry ? movementLabel(entry) : id}</li>;
+        })}
+      </ul>
+    );
+  if (key === 'line') {
+    const line = w.lines.find((x) => x.id === raw);
+    const a = line && w.accounts.find((x) => x.id === line.account_id);
+    if (line)
+      return movementLabel({ ...line, code: a?.code, currency: a?.currency });
+  }
+  return (
+    w.accounts.find((a) => a.id === raw)?.name ??
+    w.documents.find((d) => d.id === raw)?.reference ??
+    w.staff.find((u) => u.value === raw)?.label ??
+    raw
+  );
+}
 export function CashBankPage() {
   const { user, authorizationContext: a } = useAuthStore(),
     active =
@@ -184,6 +217,9 @@ function Workspace({
   const refresh = async () => {
     await cache.invalidateQueries({ queryKey: key });
     await cache.invalidateQueries({
+      queryKey: ['accounts-payable', identity, scope.bookId],
+    });
+    await cache.invalidateQueries({
       queryKey: ['cash-cutover', company, scope.bookId],
     });
     await cache.invalidateQueries({
@@ -229,6 +265,14 @@ function Workspace({
       (
         await apiClient.get<{
           input: { fields: Record<string, string>; evidence?: { id: string } };
+          eft_export?: Record<string, string>;
+          approved_eft?: Record<string, string>;
+          archived_lines?: {
+            day: string;
+            reference: string;
+            amount: string;
+            matches: { entry_id: string }[];
+          }[];
         }>(url + '/documents/' + detail, { params: s, signal })
       ).data,
   });
@@ -490,17 +534,34 @@ function Workspace({
                     d.state === 'POSTED' &&
                     ['EFT_CANCEL', 'EFT_SETTLE', 'EFT_LINK'].includes(d.kind),
                 );
+                const bankProof = w.eftProofs?.find((p) => p.eft_id === x.id);
                 return [
                   x.reference,
                   x.day,
-                  completed
-                    ? completed.kind === 'EFT_CANCEL'
-                      ? 'Cancelled'
-                      : 'Settled'
-                    : x.state === 'POSTED'
-                      ? 'Approved for export'
-                      : x.state,
-                  prepare && x.state === 'POSTED' && !completed ? (
+                  bankProof
+                    ? bankProof.entry_id
+                      ? 'Settled from statement'
+                      : 'Debit verified, awaiting payable journal'
+                    : completed
+                      ? completed.kind === 'EFT_CANCEL'
+                        ? 'Cancelled'
+                        : 'Settled'
+                      : x.state === 'POSTED'
+                        ? 'Approved for export'
+                        : x.state,
+                  bankProof && x.ap_voucher ? (
+                    <Link
+                      className="underline"
+                      to={
+                        '/apps/finance/payables?book=' +
+                        scope.bookId +
+                        '&voucher=' +
+                        x.ap_voucher
+                      }
+                    >
+                      Open payable voucher
+                    </Link>
+                  ) : prepare && x.state === 'POSTED' && !completed ? (
                     <Button
                       variant="outline"
                       onClick={() => exported.mutate(x.id)}
@@ -546,10 +607,26 @@ function Workspace({
               x.starts,
               x.ends,
               value(x.closing),
-              x.signoff_id ? 'Signed off' : 'Open',
-              <Button variant="outline" onClick={() => H(x.id)}>
-                Compare to GL
-              </Button>,
+              x.withdrawn_id
+                ? 'Withdrawn'
+                : x.signoff_id
+                  ? 'Signed off'
+                  : 'Open',
+              x.withdrawn_id ? (
+                <button
+                  className="underline"
+                  onClick={() => {
+                    navigate('Review and history');
+                    J(x.id);
+                  }}
+                >
+                  View decision
+                </button>
+              ) : (
+                <Button variant="outline" onClick={() => H(x.id)}>
+                  Compare to GL
+                </Button>
+              ),
             ])}
           />
           {summary.data && (
@@ -598,7 +675,13 @@ function Workspace({
                 x.reference,
                 x.description,
                 value(x.amount),
-                x.entry_id ? 'Matched' : 'Unmatched',
+                x.entry_id
+                  ? Number(x.match_count) > 1
+                    ? 'Matched / ' + x.match_count + ' entries'
+                    : 'Matched'
+                  : x.proof_id
+                    ? 'Reserved for payable'
+                    : 'Unmatched',
                 x.suggested_kind && !x.entry_id
                   ? names[x.suggested_kind as CashBankKind] +
                     ' · ' +
@@ -695,13 +778,60 @@ function Workspace({
                     k === 'csv' ? (
                       <pre className="max-h-48 overflow-auto">{v}</pre>
                     ) : (
-                      (w.accounts.find((a) => a.id === v)?.name ??
-                      w.documents.find((d) => d.id === v)?.reference ??
-                      w.staff.find((u) => u.value === v)?.label ??
-                      v)
+                      reviewField(w, k, v)
                     ),
                   ])}
               />
+              {proof.data.archived_lines && (
+                <Table
+                  columns={[
+                    'Original date',
+                    'Bank reference',
+                    'Amount',
+                    'Original matches',
+                  ]}
+                  rows={proof.data.archived_lines.map((x) => [
+                    x.day,
+                    x.reference,
+                    value(x.amount),
+                    x.matches
+                      .map(
+                        (m) =>
+                          w.entries.find((e) => e.id === m.entry_id)
+                            ?.reference ?? m.entry_id,
+                      )
+                      .join(', '),
+                  ])}
+                />
+              )}
+              {proof.data.approved_eft && (
+                <Table
+                  columns={['Approved EFT', 'Value']}
+                  rows={Object.entries({
+                    reference: 'Instruction reference',
+                    sourceBank: 'Source bank',
+                    sourceAccountNumber: 'Debited account',
+                    payee: 'Beneficiary name',
+                    bank: 'Beneficiary bank',
+                    beneficiary: 'Beneficiary account',
+                    currency: 'Currency',
+                    amount: 'Amount',
+                  }).map(([k, label]) => [label, proof.data!.approved_eft![k]])}
+                />
+              )}
+              {proof.data.eft_export && (
+                <Table
+                  columns={['EFT source', 'Value']}
+                  rows={[
+                    'sourceBank',
+                    'sourceAccountName',
+                    'sourceAccountNumber',
+                  ].map((k, i) => [
+                    ['Bank', 'Account name', 'Account number'][i],
+                    proof.data!.eft_export![k],
+                  ])}
+                />
+              )}
               {proof.data.input.evidence && (
                 <p>
                   Supporting document ·{' '}
@@ -737,6 +867,10 @@ function Treasury({
 }) {
   const [from, F] = useState(w.today),
     [to, T] = useState(w.today);
+  const previousField: Record<string, string> = {
+    expectedInflow: 'inflow',
+    expectedOutflow: 'outflow',
+  };
   const r = useQuery({
     queryKey: ['cash-forecast', identity, scope.bookId, from, to],
     enabled: !!from && !!to && from <= to,
@@ -789,7 +923,7 @@ function Treasury({
               'Opening',
               'Expected in',
               'Expected out',
-              'Net',
+              'Projected net',
               'Projected closing',
               'Actual in',
               'Actual out',
@@ -798,13 +932,13 @@ function Treasury({
               x.currency,
               ...[
                 'opening',
-                'inflow',
-                'outflow',
+                'expectedInflow',
+                'expectedOutflow',
                 'net',
                 'closing',
                 'actualInflow',
                 'actualOutflow',
-              ].map((k) => value(x[k])),
+              ].map((k) => value(x[k] ?? x[previousField[k]])),
             ])}
           />
           {from.slice(0, 7) !== to.slice(0, 7) && (
@@ -826,12 +960,12 @@ function Treasury({
                   x.currency,
                   ...[
                     'opening',
-                    'inflow',
-                    'outflow',
+                    'expectedInflow',
+                    'expectedOutflow',
                     'closing',
                     'actualInflow',
                     'actualOutflow',
-                  ].map((k) => value(x[k])),
+                  ].map((k) => value(x[k] ?? x[previousField[k]])),
                 ])}
               />
             </>

@@ -84,6 +84,7 @@ export interface Register {
   staff: { id: string; name: string }[];
   companies?: Info[];
   availableCredits?: Record<string, string>;
+  statementVerifiedVouchers?: string[];
   cashTills?: { id: string; code: string; name: string; currency: string }[];
   receivingRoles?: { code: string; accountCode?: string | null }[];
 }

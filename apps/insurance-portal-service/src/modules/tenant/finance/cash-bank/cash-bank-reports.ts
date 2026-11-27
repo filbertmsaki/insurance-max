@@ -5,6 +5,7 @@ import {
   date,
   field,
   positive,
+  uuid,
   type Context,
   type Document,
   doc,
@@ -12,6 +13,53 @@ import {
 } from './cash-bank.types';
 
 export async function plan(c: Context, r: Document) {
+  if (r.kind === 'LINK_PLAN' || r.kind === 'UNLINK_PLAN') {
+    const f = r.input.fields,
+      p = await doc(c, f.target, 'PLAN'),
+      entry = uuid(f.entry);
+    const [e] = await c.m.query(
+      `SELECT e.amount,e.day::text,j.reversal_of,op.source_type,d.kind FROM finance_cb_entries e JOIN finance_foundation_journals j ON j.id=e.journal_id
+      LEFT JOIN finance_operating_postings op ON op.candidate_id=j.candidate_id LEFT JOIN finance_cb_documents d ON d.journal_id=j.id
+      WHERE e.id=$1 AND e.account_id=$2 AND e.day BETWEEN $3 AND $4`,
+      [entry, p.input.fields.account, p.day, r.day],
+    );
+    if (
+      !e ||
+      e.reversal_of ||
+      e.source_type === 'RECEIPT_REVERSAL' ||
+      [
+        'TRANSFER',
+        'WITHDRAW',
+        'DEPOSIT',
+        'REPLENISH',
+        'WALLET_SETTLE',
+        'RECEIVE',
+        'REVERSE',
+        'VOID',
+        'STOP',
+        'DISHONOUR',
+      ].includes(e.kind) ||
+      new Decimal(e.amount).gt(0) !== (p.input.fields.direction === 'INFLOW')
+    )
+      conflict(
+        'Choose an external cashbook movement in the plan account and direction.',
+      );
+    const [later] = await c.m.query(
+      `SELECT 1 FROM finance_cb_documents WHERE book_id=$1 AND state='POSTED' AND ((kind IN ('LINK_PLAN','UNLINK_PLAN') AND lower(input->'fields'->>'entry')=$2 AND day>$3) OR (kind='CANCEL_PLAN' AND input->'fields'->>'target'=$4 AND day<=$3))`,
+      [c.b.book_id, entry, r.day, p.id],
+    );
+    if (later)
+      conflict('Select an active plan and use the latest allocation date.');
+    const [used] = await c.m.query(
+      'SELECT plan_id FROM finance_cb_plan_entries($1,$2) WHERE entry_id=$3',
+      [c.b.book_id, r.day, entry],
+    );
+    if (r.kind === 'LINK_PLAN' ? !!used : used?.plan_id !== p.id)
+      conflict(
+        'Verify the current allocation. Remove an existing link before assigning the movement.',
+      );
+    return;
+  }
   if (r.kind === 'CANCEL_PLAN') {
     const p = await doc(c, r.input.fields.target, 'PLAN');
     const [old] = await c.m.query(
@@ -70,14 +118,19 @@ export async function forecast(c: Context, from: string, to: string) {
     `WITH ar AS (
     SELECT h.invoice_id,h.currency,sum(h.invoice_delta) n FROM finance_ar_activity($1,$5) h WHERE h.day<$3 GROUP BY h.invoice_id,h.currency),
     ap AS (SELECT i.id,i.reference,i.currency,i.due_date,sum(m.amount) n FROM finance_ap_movements m JOIN finance_ap_status d ON d.id=m.document_id JOIN finance_ap_records i ON i.id=m.item_id WHERE i.book_id=$2 AND d.posted_date<$3 AND i.kind IN ('BILL','EXPENSE','RETIREMENT') GROUP BY i.id),
+    realized AS (SELECT * FROM finance_cb_plan_entries($2,$4)),
+    plans AS (SELECT d.id,d.reference,a.currency,(d.input->'fields'->>'due')::date due,
+      CASE WHEN d.input->'fields'->>'direction'='INFLOW' THEN 1 ELSE -1 END side,(d.input->'fields'->>'amount')::numeric planned,
+      EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.book_id=$2 AND x.kind='CANCEL_PLAN' AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<=$3) cancelled
+      FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=lower(d.input->'fields'->>'account') WHERE d.book_id=$2 AND d.kind='PLAN' AND d.state='POSTED' AND d.day<=$3),
+    remaining AS (SELECT p.*,p.planned-coalesce((SELECT sum(x.amount)*p.side FROM realized x WHERE x.plan_id=p.id),0) rest FROM plans p),
     items AS (
     SELECT 'Receivable' source,i.invoice_no reference,ar.currency,greatest(coalesce(i.due_date,$3),$3) due,ar.n amount FROM ar JOIN invoices i ON i.id=ar.invoice_id WHERE ar.n>0
     UNION ALL SELECT 'Supplier or employee payable',reference,currency,greatest(coalesce(due_date,$3),$3),-n FROM ap WHERE n>0
     UNION ALL SELECT 'Scheduled advance or imprest',v.reference,v.currency,greatest(v.due_date,$3),-v.amount FROM finance_ap_status v WHERE v.book_id=$2 AND v.kind IN ('ADVANCE','IMPREST') AND v.state='APPROVED' AND v.doc_date<=$3 AND (v.posted_date IS NULL OR v.posted_date>=$3)
     UNION ALL SELECT 'Claim',disbursement_no,currency_code,$3::date,-amount FROM claim_disbursements WHERE company_id=$1 AND (requested_at AT TIME ZONE $5)::date<$3 AND (confirmed_at IS NULL OR (confirmed_at AT TIME ZONE $5)::date>=$3) AND (failed_at IS NULL OR (failed_at AT TIME ZONE $5)::date>=$3) AND status<>'CANCELLED'
-    UNION ALL SELECT 'Treasury plan',d.reference,a.currency,greatest((d.input->'fields'->>'due')::date,$3),
-      (d.input->'fields'->>'amount')::numeric*CASE WHEN d.input->'fields'->>'direction'='INFLOW' THEN 1 ELSE -1 END
-      FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=d.input->'fields'->>'account' WHERE d.book_id=$2 AND d.kind='PLAN' AND d.state='POSTED' AND d.day<=$3 AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind='CANCEL_PLAN' AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<=$3)
+    UNION ALL SELECT 'Treasury plan',reference,currency,greatest(due,$3),rest*side FROM remaining WHERE rest>0 AND NOT cancelled
+    UNION ALL SELECT 'Realized treasury plan',p.reference,p.currency,x.day,x.amount FROM realized x JOIN plans p ON p.id=x.plan_id WHERE x.day BETWEEN $3 AND $4
     UNION ALL SELECT 'EFT instruction',d.reference,a.currency,greatest(d.day,$3),-(d.input->'fields'->>'amount')::numeric FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=d.input->'fields'->>'account' WHERE d.book_id=$2 AND d.kind='EFT' AND d.state='POSTED' AND coalesce(d.input->'fields'->>'apVoucher','')='' AND d.day<=$3 AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<$3))
     SELECT source,reference,currency,due::text,amount::text FROM items WHERE due<=$4 ORDER BY due,source,reference`,
     [c.b.company_id, c.b.book_id, from, to, c.b.timezone],
@@ -136,7 +189,12 @@ export async function forecast(c: Context, from: string, to: string) {
   });
   return { from, to, totals, periods, items: rows, actual };
 }
-type Expected = { currency: string; amount: string; due: string };
+type Expected = {
+  source: string;
+  currency: string;
+  amount: string;
+  due: string;
+};
 type Observed = {
   currency: string;
   day: string;
@@ -156,6 +214,9 @@ function projection(
   actual: Observed[],
 ) {
   const amounts = items.map((x) => new Decimal(x.amount));
+  const realized = items
+    .filter((x) => x.source === 'Realized treasury plan')
+    .map((x) => new Decimal(x.amount));
   const inflow = sum(amounts.filter((n) => n.gt(0))),
     outflow = sum(amounts.filter((n) => n.lt(0))).abs(),
     net = inflow.minus(outflow);
@@ -164,6 +225,12 @@ function projection(
     opening: opening.toFixed(),
     inflow: inflow.toFixed(),
     outflow: outflow.toFixed(),
+    expectedInflow: inflow
+      .minus(sum(realized.filter((n) => n.gt(0))))
+      .toFixed(),
+    expectedOutflow: outflow
+      .minus(sum(realized.filter((n) => n.lt(0))).abs())
+      .toFixed(),
     net: net.toFixed(),
     closing: opening.plus(net).toFixed(),
     actualInflow: sum(actual.map((x) => x.inflow)).toFixed(),

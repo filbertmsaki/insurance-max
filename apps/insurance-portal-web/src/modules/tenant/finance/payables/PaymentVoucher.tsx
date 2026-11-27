@@ -75,7 +75,8 @@ export function PaymentVoucher({
         {r.journal_no && <p>Journal · {r.journal_no}</p>}
         {r.settlement && (
           <p>
-            Bank reference · {r.settlement.reference} · {r.settlement.settledAt}
+            Bank reference · {r.settlement.reference} ·{' '}
+            {r.settlement.valueDate || r.settlement.settledAt}
           </p>
         )}
       </section>

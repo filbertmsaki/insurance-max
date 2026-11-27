@@ -238,6 +238,9 @@ function Work({
     onSuccess: async () => {
       await refresh();
       await qc.invalidateQueries({ queryKey: ['ap-report', identity] });
+      await qc.invalidateQueries({
+        queryKey: ['cash-bank', identity, scope?.bookId],
+      });
       await qc.invalidateQueries({ queryKey: ['finance-operating-postings'] });
       N('Saved.');
     },
@@ -255,6 +258,8 @@ function Work({
   };
   const r = reg.data?.records.find((x) => x.id === chosen),
     w = employee ? reg.data : gl.data;
+  const statementVerified =
+    !!r && !!reg.data?.statementVerifiedVouchers?.includes(r.id);
   const canPrepare = permissions.includes('finance-foundation:prepare'),
     canReview = permissions.includes('finance-foundation:review');
   const available = employee
@@ -648,7 +653,8 @@ function Work({
                       ['PENDING', 'APPROVED', 'GL_REJECTED'].includes(
                         r.status,
                       ) &&
-                      !r.settlement && (
+                      !r.settlement &&
+                      !statementVerified && (
                         <Button
                           variant="outline"
                           disabled={!reason.trim() || cmd.isPending}
@@ -659,6 +665,7 @@ function Work({
                       )}
                     {canPrepare &&
                       r.state === 'APPROVED' &&
+                      !statementVerified &&
                       !r.data.details.tillId &&
                       (moneyKinds.includes(r.kind) || r.kind === 'BATCH') && (
                         <Button
@@ -673,7 +680,8 @@ function Work({
                       (r.data.lines.length > 0 ||
                         r.kind === 'REVERSAL' ||
                         r.kind === 'BATCH') &&
-                      (!r.data.details.tillId &&
+                      (!statementVerified &&
+                      !r.data.details.tillId &&
                       (r.kind === 'BATCH' ||
                         (moneyKinds.includes(r.kind) && Number(r.amount) > 0) ||
                         Number(r.data.details.cashReturned) > 0 ||
@@ -704,7 +712,9 @@ function Work({
                           disabled={cmd.isPending}
                           onClick={() => void action('post')}
                         >
-                          Submit journal for approval
+                          {statementVerified
+                            ? 'Submit statement-verified payment for GL approval'
+                            : 'Submit journal for approval'}
                         </Button>
                       ))}
                     <Button variant="outline" onClick={() => H(!history)}>

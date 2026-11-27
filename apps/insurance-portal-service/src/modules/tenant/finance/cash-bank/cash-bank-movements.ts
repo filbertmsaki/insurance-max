@@ -20,6 +20,7 @@ import { match, statementLine } from './cash-bank-statements';
 import {
   current,
   record,
+  voucherNumber,
 } from '../payables/trade-payables/trade-payables.types';
 import { activeBatch } from '../payables/trade-payables/trade-payables-payments';
 
@@ -114,8 +115,8 @@ export async function transfer(c: Context, id: string) {
 async function chequeNumber(c: Context, r: Document, a: Account) {
   const f = r.input.fields;
   const [range] = await c.m.query(
-    'SELECT * FROM finance_cb_chequebooks WHERE id=$1 AND account_id=$2',
-    [uuid(f.chequebook), a.id],
+    'SELECT b.* FROM finance_cb_chequebooks b JOIN finance_cb_documents d ON d.id=b.id WHERE b.id=$1 AND b.account_id=$2 AND d.day<=$3',
+    [uuid(f.chequebook), a.id, r.day],
   );
   if (
     !range ||
@@ -128,7 +129,7 @@ async function chequeNumber(c: Context, r: Document, a: Account) {
     'SELECT 1 FROM finance_cb_cheques WHERE book_id=$1 AND serial=$2',
     [range.id, f.serial],
   );
-  if (used) conflict('This cheque number has already been issued.');
+  if (used) conflict('This cheque number has already been issued or retired.');
 }
 export async function prepareMovement(c: Context, r: Document) {
   const f = r.input.fields,
@@ -201,7 +202,7 @@ export async function prepareMovement(c: Context, r: Document) {
       conflict(
         'Choose a received transfer with an outstanding exchange difference.',
       );
-    const src = await account(c, t.source),
+    const src = await account(c, t.source, false),
       residual = new Decimal(t.fx_difference);
     const pnl = await availableRole(
       c,
@@ -371,7 +372,11 @@ export async function openEft(c: Context, id: string) {
       "SELECT 1 FROM finance_cb_documents WHERE book_id=$1 AND kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND state='POSTED' AND input->'fields'->>'target'=$2",
       [c.b.book_id, order.id],
     );
-  if (done) conflict('This EFT instruction is already settled or cancelled.');
+  const [proof] = await c.m.query(
+    'SELECT id FROM finance_cb_ap_proofs WHERE eft_id=$1 AND released_id IS NULL',
+    [order.id],
+  );
+  if (done || proof) conflict('This EFT is verified, settled or cancelled.');
   return order;
 }
 type PayableEntry = {
@@ -412,6 +417,68 @@ function bankReference(
 }
 export async function channelOperation(c: Context, r: Document) {
   const f = r.input.fields;
+  if (r.kind === 'EFT_RELEASE') {
+    field(f.description, 'verification withdrawal reason', 700);
+    const approval = await doc(c, f.target, 'EFT_VERIFY');
+    const [proof] = await c.m.query(
+      `WITH released AS (UPDATE finance_cb_ap_proofs p SET released_id=$2 FROM finance_ap_records ap
+      WHERE p.id=$1 AND p.voucher_id=ap.id AND p.released_id IS NULL AND p.entry_id IS NULL AND ap.candidate_id IS NULL RETURNING p.id) SELECT id FROM released`,
+      [approval.id, r.id],
+    );
+    if (!proof)
+      conflict(
+        'Withdraw verification before the payable journal has been submitted.',
+      );
+    return;
+  }
+  if (r.kind === 'EFT_VERIFY') {
+    const order = await openEft(c, f.target);
+    const o = order.input.fields;
+    if (!o.apVoucher)
+      conflict('Choose an EFT linked to an approved payable voucher.');
+    const verified = await payableInstruction(c, o);
+    const line = await postingLine(c, f.line);
+    const normalize = (value: string) =>
+      value.trim().replace(/\s+/g, '').toUpperCase();
+    const [dates] = await c.m.query(
+      `SELECT (e.reviewed_at AT TIME ZONE $3)::date::text eft_day,(ap.reviewed_at AT TIME ZONE $3)::date::text voucher_day,(now() AT TIME ZONE $3)::date::text today,
+      ap.due_date::text due,ap.doc_date::text doc_date,ap.sequence,ap.data->'details'->>'discountUntil' discount_until
+      FROM finance_cb_documents e JOIN finance_ap_records ap ON ap.id=$2 WHERE e.id=$1`,
+      [order.id, o.apVoucher, c.b.timezone],
+    );
+    if (
+      line.account_id !== o.account ||
+      !new Decimal(line.amount).eq(new Decimal(o.amount).negated()) ||
+      line.day < order.day ||
+      line.day < dates.eft_day ||
+      line.day < dates.voucher_day ||
+      line.day < (dates.due ?? dates.doc_date) ||
+      (dates.discount_until && line.day > dates.discount_until) ||
+      line.day > dates.today ||
+      line.day > r.day ||
+      !bankReference(line, [
+        order.reference,
+        voucherNumber(dates),
+        f.confirmation,
+      ]) ||
+      normalize(
+        field(f.sourceNumber, 'debited account on the bank evidence'),
+      ) !== normalize(order.eft_export!.sourceAccountNumber) ||
+      normalize(
+        field(f.beneficiary, 'beneficiary account on the bank evidence'),
+      ) !== normalize(verified.beneficiary) ||
+      field(f.bank, 'beneficiary bank on the bank evidence').toUpperCase() !==
+        verified.bank.trim().toUpperCase()
+    )
+      conflict(
+        'Verify the debited account, beneficiary, reference, amount and value date against the approved EFT and bank evidence.',
+      );
+    await c.m.query(
+      'INSERT INTO finance_cb_ap_proofs(id,book_id,eft_id,voucher_id,line_id) VALUES($1,$2,$3,$4,$5)',
+      [r.id, c.b.book_id, order.id, o.apVoucher, line.id],
+    );
+    return;
+  }
   if (r.kind === 'EFT_CANCEL') {
     const order = await openEft(c, f.target);
     if (order.input.fields.apVoucher) {
@@ -465,7 +532,39 @@ export async function channelOperation(c: Context, r: Document) {
   }
   const a = await account(c, f.account);
   if (a.kind !== 'BANK') bad('Select a bank account.');
+  if (r.kind === 'RETIRE_LEAF') {
+    await chequeNumber(c, r, a);
+    const [reserved] = await c.m.query(
+      `SELECT id FROM finance_cb_documents WHERE book_id=$1 AND kind='CHEQUE' AND state IN ('PENDING','APPROVED') AND lower(input->'fields'->>'chequebook')=$2 AND ltrim(input->'fields'->>'serial','0')=ltrim($3,'0')`,
+      [c.b.book_id, uuid(f.chequebook), f.serial],
+    );
+    if (reserved)
+      conflict(
+        'Resolve the outstanding cheque issue before retiring its serial.',
+      );
+    if (!['LOST', 'SPOILED'].includes(f.status)) bad('Choose lost or spoiled.');
+    field(f.description, 'reason for retiring the cheque leaf', 700);
+    await c.m.query(
+      'INSERT INTO finance_cb_cheques(id,book_id,serial,state) VALUES($1,$2,$3,$4)',
+      [r.id, uuid(f.chequebook), f.serial, f.status],
+    );
+    return;
+  }
   if (r.kind === 'EFT') {
+    const [snapshot] = await c.m.query(
+      'SELECT finance_cb_eft_export($1,clock_timestamp()) current',
+      [r.id],
+    );
+    if (
+      !r.eft_export ||
+      !snapshot.current ||
+      Object.keys(snapshot.current).some(
+        (k) => snapshot.current[k] !== r.eft_export![k],
+      )
+    )
+      conflict(
+        'The source bank details changed during review. Withdraw and prepare the EFT again.',
+      );
     const amount = positive(f.amount, c.b.context.currencyScales[a.currency]);
     if (f.apVoucher) {
       await payableInstruction(c, f);
@@ -519,6 +618,7 @@ export async function channelOperation(c: Context, r: Document) {
 export async function finishMovement(c: Context, r: Document, journal: string) {
   const f = r.input.fields;
   if (transfers.includes(r.kind)) {
+    await account(c, f.destination);
     await c.m.query(
       'INSERT INTO finance_cb_transfers(id,source,destination,amount,transit_role,destination_amount) VALUES($1,$2,$3,$4,$5,$6)',
       [
@@ -538,7 +638,7 @@ export async function finishMovement(c: Context, r: Document, journal: string) {
     );
   } else if (r.kind === 'FX_SETTLE') {
     const [t] = await c.m.query(
-      'UPDATE finance_cb_transfers SET fx_id=$2 WHERE id=$1 AND fx_id IS NULL AND fx_difference<>0 RETURNING id',
+      'WITH cleared AS (UPDATE finance_cb_transfers SET fx_id=$2 WHERE id=$1 AND fx_id IS NULL AND fx_difference<>0 RETURNING id) SELECT id FROM cleared',
       [f.target, r.id],
     );
     if (!t)

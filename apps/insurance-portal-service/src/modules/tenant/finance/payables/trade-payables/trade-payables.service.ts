@@ -41,6 +41,7 @@ import {
   terms,
   text,
   uuid,
+  voucherNumber,
   type ApRecord,
   type Context,
   type Fields,
@@ -52,7 +53,12 @@ import {
   relatedCompanies,
   receivingRoles,
 } from './trade-payables-purchasing';
-import { activeBatch, batch, payment } from './trade-payables-payments';
+import {
+  activeBatch,
+  batch,
+  payment,
+  verifiedStatementPayments,
+} from './trade-payables-payments';
 import {
   availableCredits,
   reconciliation,
@@ -109,8 +115,16 @@ async function audit(
 }
 function visible(r: ApRecord) {
   if (r.settlement) {
-    const { issuer, reference, settledAt } = r.settlement;
-    r = { ...r, settlement: { issuer, reference, settledAt } };
+    const { issuer, reference, settledAt, valueDate } = r.settlement;
+    r = {
+      ...r,
+      settlement: {
+        issuer,
+        reference,
+        settledAt,
+        ...(valueDate ? { valueDate } : {}),
+      },
+    };
   }
   if (r.kind !== 'BANK') return r;
   const { accountNumber, ...other } = r.data.details;
@@ -554,6 +568,10 @@ export class TradePayablesService {
             r.data.details.openingImportId)
         )
           conflict('This approved record must be retained.');
+        if ((await verifiedStatementPayments(m, b.book_id, [id])).length)
+          conflict(
+            'Withdraw the EFT bank verification before withdrawing the payable.',
+          );
         if (await activeBatch({ m, b }, id))
           conflict('Withdraw the batch before its payment.');
         if (r.kind === 'BATCH') {
@@ -715,7 +733,11 @@ export class TradePayablesService {
           (!!returned &&
             moneyMinor(returned, b.context.currencyScales[r.currency]) > 0n) ||
           (r.kind === 'REVERSAL' && !!p.details.bankAmount);
-        let physicalSettlement: Record<string, string> | undefined;
+        let recordedSettlement: Record<string, string> | undefined;
+        const [proof] =
+          bankNeeded && !p.details.tillId && cashKinds.includes(r.kind)
+            ? await verifiedStatementPayments(m, b.book_id, [id])
+            : [];
         if (bankNeeded && p.details.tillId) {
           if (batchId || observation)
             conflict(
@@ -756,7 +778,7 @@ export class TradePayablesService {
             conflict(
               'The payment exceeds the till balance or single payment limit.',
             );
-          physicalSettlement = {
+          recordedSettlement = {
             issuer: 'CASH_OFFICE',
             reference: voucherNumber(r),
             settledAt: new Date(shift.settled).toISOString(),
@@ -764,6 +786,26 @@ export class TradePayablesService {
             cashier: a.sourceUserId!,
           };
           postingDate = shift.day;
+        } else if (proof) {
+          if (observation || batchId)
+            conflict(
+              'This voucher already has independently verified statement evidence.',
+            );
+          await this.checkBank(m, r, proof.verified_at);
+          postingDate = proof.day;
+          if (
+            postingDate < (r.due_date ?? r.doc_date) ||
+            (p.details.discountUntil && postingDate > p.details.discountUntil)
+          )
+            conflict(
+              'The bank value date falls outside the approved settlement dates.',
+            );
+          recordedSettlement = {
+            issuer: 'BANK_STATEMENT',
+            reference: proof.reference,
+            valueDate: proof.day,
+            statementProof: proof.id,
+          };
         } else if (bankNeeded) {
           const verified = await verifyBankSettlement(
             m,
@@ -840,7 +882,7 @@ export class TradePayablesService {
               });
         await m.query(
           'UPDATE finance_ap_records SET candidate_id=$1,settlement=$2 WHERE id=$3',
-          [candidate.id, physicalSettlement ?? observation ?? null, id],
+          [candidate.id, recordedSettlement ?? observation ?? null, id],
         );
         await audit(m, r, 'SUBMIT_GL', a, reference);
         return visible(await record(m, b.book_id, id));
@@ -897,8 +939,14 @@ export class TradePayablesService {
           (r.kind !== 'BATCH' && !cashKinds.includes(r.kind))
         )
           conflict('Approve the voucher or batch first.');
+        const items = r.data.batchItems ?? [id];
+        const verified = await verifiedStatementPayments(m, b.book_id, items);
+        if (verified.length)
+          conflict(
+            'The bank debit is already verified. Submit the original payable for GL approval.',
+          );
         const instructions: Fields[] = [];
-        for (const key of r.data.batchItems ?? [id]) {
+        for (const key of items) {
           const v = await record(m, b.book_id, key);
           if (v.data.details.tillId)
             conflict(
@@ -1091,6 +1139,9 @@ export class TradePayablesService {
         );
         return {
           records: rows.map(visible),
+          statementVerifiedVouchers: (
+            await verifiedStatementPayments(m, b.book_id)
+          ).map((x) => x.voucher_id),
           cashTills: (
             await m.query(
               "SELECT to_regclass('public.finance_cb_accounts') IS NOT NULL installed",
@@ -1147,8 +1198,4 @@ export class TradePayablesService {
     );
   }
 }
-export function voucherNumber(r: ApRecord) {
-  return (
-    'PV-' + r.doc_date.slice(0, 4) + '-' + String(r.sequence).padStart(8, '0')
-  );
-}
+export { voucherNumber } from './trade-payables.types';

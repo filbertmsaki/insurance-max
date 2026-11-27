@@ -327,3 +327,9 @@ export async function outstanding(c: Context, id: unknown, kinds: Kind[]) {
     withholding: units(s.withholding),
   };
 }
+
+export function voucherNumber(r: Pick<ApRecord, 'doc_date' | 'sequence'>) {
+  return (
+    'PV-' + r.doc_date.slice(0, 4) + '-' + String(r.sequence).padStart(8, '0')
+  );
+}

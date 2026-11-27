@@ -13,6 +13,7 @@ import { context, scope, user, uuid } from '../foundation/__tests__/fixtures';
 import { apiClient } from '@/modules/shared/api/client';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { CashBankPage } from './CashBankPage';
+import type { CashData } from './cash-form';
 afterEach(() => {
   vi.restoreAllMocks();
   useAuthStore.setState({ user: null, authorizationContext: null });
@@ -56,7 +57,11 @@ const data = {
   shifts: [],
   cheques: [],
 };
-function mount(view: string, prepare: boolean) {
+function mount(
+  view: string,
+  prepare: boolean,
+  changes: Partial<CashData> = {},
+) {
   useAuthStore.setState({
     user,
     authorizationContext: {
@@ -89,7 +94,7 @@ function mount(view: string, prepare: boolean) {
             actual: [],
             periods: [],
           }
-        : data,
+        : { ...data, ...changes },
   }));
   const send = vi
     .spyOn(apiClient, 'post')
@@ -224,4 +229,77 @@ it('uploads a statement and preserves bank-specific column mappings', async () =
       }),
     ),
   );
+});
+
+it('submits the selected entries for one combined bank debit', async () => {
+  const line = uuid(30),
+    entries = [
+      {
+        id: uuid(31),
+        account_id: uuid(9),
+        code: 'CRDB',
+        reference: 'Cheque 1',
+        amount: '-100000',
+      },
+      {
+        id: uuid(32),
+        account_id: uuid(9),
+        code: 'CRDB',
+        reference: 'Cheque 2',
+        amount: '-200000',
+      },
+    ];
+  const send = mount('statements-and-reconciliation&action=GROUP_MATCH', true, {
+    entries,
+    lines: [
+      {
+        id: line,
+        reference: 'Batch payment',
+        account_id: uuid(9),
+        day: data.today,
+        amount: '-300000',
+      },
+    ],
+  });
+  fireEvent.change(await screen.findByLabelText('Document reference'), {
+    target: { value: 'MATCH-BATCH' },
+  });
+  fireEvent.change(screen.getByLabelText('Statement line'), {
+    target: { value: line },
+  });
+  fireEvent.click(screen.getByRole('checkbox', { name: /Cheque 1/ }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Cheque 2/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+  await waitFor(() =>
+    expect(send).toHaveBeenCalledWith(
+      '/tenant/finance/cash-bank',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          kind: 'GROUP_MATCH',
+          fields: { line, entries: entries.map((e) => e.id).join(',') },
+        }),
+      }),
+    ),
+  );
+});
+it('opens the original payable from a verified bank debit', async () => {
+  const id = uuid(33),
+    voucher = uuid(34);
+  mount('payment-channels', true, {
+    documents: [
+      {
+        id,
+        kind: 'EFT',
+        reference: 'WIRE-1',
+        state: 'POSTED',
+        maker_id: uuid(3),
+        ap_voucher: voucher,
+      },
+    ],
+    eftProofs: [{ id: uuid(35), eft_id: id, voucher_id: voucher }],
+  });
+  expect(
+    await screen.findByRole('link', { name: 'Open payable voucher' }),
+  ).toHaveAttribute('href', expect.stringContaining('voucher=' + voucher));
+  expect(screen.queryByRole('button', { name: 'Export EFT file' })).toBeNull();
 });

@@ -1,3 +1,4 @@
+import { FinanceCashBankControls1800200000000 } from '../../src/database/migrations/1800200000000-FinanceCashBankControls';
 import { randomUUID } from 'node:crypto';
 import { fixtureBank } from './finance-bank-observation-fixture';
 import type { DataSource } from 'typeorm';
@@ -813,4 +814,476 @@ export async function exerciseCashBank(f: {
       )
     )[0].n,
   ).toBe(0);
+
+  // Exercise an upgrade over populated FIN-06 tables, including a bank change made after EFT approval.
+  const legacy = f.db.createQueryRunner();
+  await legacy.startTransaction();
+  try {
+    const controls = new FinanceCashBankControls1800200000000();
+    await controls.down(legacy);
+    await legacy.query(
+      `INSERT INTO finance_cb_documents(company_id,book_id,kind,reference,day,input,request_key,request_hash,maker_id,maker_person,reviewer_id,reviewer_person,reviewed_at,state)
+      SELECT company_id,book_id,'AMEND_ACCOUNT','OLDER-SYSTEM-AMEND',day,jsonb_build_object('fields',jsonb_build_object('account',id,'name','New name','number','999')),
+      'old-system-amend','fixture',maker_id,maker_person,reviewer_id,reviewer_person,clock_timestamp(),'POSTED' FROM finance_cb_documents WHERE id=$1`,
+      [bankAccount],
+    );
+    await legacy.query(
+      "UPDATE finance_cb_accounts SET name='New name',account_number='999' WHERE id=$1",
+      [bankAccount],
+    );
+    await controls.up(legacy);
+    const [historic] = await legacy.query(
+      'SELECT eft_export FROM finance_cb_documents WHERE id=$1',
+      [eft],
+    );
+    expect(historic.eft_export.sourceAccountNumber).toBe('001');
+    expect(
+      await legacy.query('SELECT 1 FROM finance_cb_matches WHERE line_id=$1', [
+        apLine.id,
+      ]),
+    ).toHaveLength(1);
+  } finally {
+    await legacy.rollbackTransaction();
+    await legacy.release();
+  }
+
+  // Corrections use the same maker, reviewer and GL entry points as the original transactions.
+  async function rejectedReview(
+    kind: CashBankKind,
+    fields: Record<string, string>,
+    day = today,
+  ) {
+    const d = await post(maker, 'cash-bank', {
+      input: input(kind, fields, undefined, day),
+    });
+    await post(
+      checker,
+      'cash-bank/' + d.id + '/review',
+      { decision: 'approve' },
+      409,
+    );
+    await post(maker, 'cash-bank/' + d.id + '/cancel');
+  }
+  const header = 'date,reference,amount';
+  const continuous = {
+    account: claims,
+    from: tomorrow,
+    to: tomorrow,
+    csv: header,
+    opening: '150000000',
+    closing: '150000000',
+  };
+  await rejectedReview(
+    'STATEMENT',
+    { ...continuous, opening: '149999999', closing: '149999999' },
+    tomorrow,
+  );
+  const typo = await run(
+    'STATEMENT',
+    {
+      ...continuous,
+      closing: '150000001',
+      csv: header + '\n' + tomorrow + ',TYPO,1',
+    },
+    undefined,
+    tomorrow,
+  );
+  await rejectedReview('SIGNOFF', { statement: typo }, tomorrow);
+  await run(
+    'WITHDRAW_STATEMENT',
+    { statement: typo, description: 'Bank issued a corrected statement' },
+    undefined,
+    tomorrow,
+  );
+  const reusedReference = (await workspace()).documents.find(
+    (x: any) => x.id === typo,
+  ).reference;
+  const corrected = await run(
+    'STATEMENT',
+    continuous,
+    reusedReference,
+    tomorrow,
+  );
+  await run('SIGNOFF', { statement: corrected }, undefined, tomorrow);
+  await rejectedReview(
+    'WITHDRAW_STATEMENT',
+    { statement: corrected, description: 'Already signed' },
+    tomorrow,
+  );
+  expect(
+    (await workspace()).statements.find((x: any) => x.id === typo).withdrawn_id,
+  ).toBeTruthy();
+
+  const frozen = await run(
+    'EFT',
+    {
+      account: other,
+      payee: 'Network',
+      bank: 'NMB',
+      beneficiary: '34567',
+      amount: '5000',
+      role: 'INTERNET',
+    },
+    'FROZEN-EFT',
+  );
+  const download = () => call(maker, 'cash-bank/eft/' + frozen + '?' + f.query);
+  const original = await download();
+  await run('AMEND_ACCOUNT', {
+    account: other,
+    name: 'Updated operations',
+    purpose: 'Expenses',
+    number: '002-REVISED',
+  });
+  expect(await download()).toEqual(original);
+  expect(original.sourceAccountNumber).toBe('002');
+  expect(
+    (
+      await f.db.query(
+        'SELECT finance_cb_eft_export(id,reviewed_at) snapshot FROM finance_cb_documents WHERE id=$1',
+        [frozen],
+      )
+    )[0].snapshot,
+  ).toEqual(original);
+  await run('EFT_CANCEL', { target: frozen });
+
+  const chequeBook = await run('CHEQUEBOOK', {
+    account: other,
+    first: '400',
+    last: '404',
+  });
+  const issue = (serial: string, amount: string) => ({
+    account: other,
+    chequebook: chequeBook,
+    serial,
+    payee: 'Supplier batch',
+    amount,
+    role: 'INTERNET',
+  });
+  await run('RETIRE_LEAF', {
+    account: other,
+    chequebook: chequeBook,
+    serial: '402',
+    status: 'SPOILED',
+    description: 'Printer jam',
+  });
+  await run('RETIRE_LEAF', {
+    account: other,
+    chequebook: chequeBook,
+    serial: '403',
+    status: 'LOST',
+    description: 'Leaf missing during count',
+  });
+  await post(
+    maker,
+    'cash-bank',
+    { input: input('CHEQUE', issue('00402', '20')) },
+    409,
+  );
+  const pendingLeaf = await post(maker, 'cash-bank', {
+    input: input('CHEQUE', issue('404', '20')),
+  });
+  await rejectedReview('RETIRE_LEAF', {
+    account: other,
+    chequebook: chequeBook,
+    serial: '404',
+    status: 'LOST',
+    description: 'Already reserved',
+  });
+  await post(maker, 'cash-bank/' + pendingLeaf.id + '/cancel');
+  await run('CHEQUE', issue('400', '100000'), 'BATCH-400');
+  await run('CHEQUE', issue('401', '200000'), 'BATCH-401');
+  const pay = await apReview(
+    apInput(
+      'ADVANCE',
+      'Statement verified advance',
+      {
+        description: 'Supplier advance by bank file',
+        amount: '750',
+        scheduledDate: today,
+        bankId: beneficiary.id,
+        bankRole: 'NMB',
+      },
+      { supplierId: supplier.id },
+    ),
+  );
+  const wire = await run(
+    'EFT',
+    { account: other, apVoucher: pay.id },
+    'FILE-PAY',
+  );
+  await post(maker, 'payables/' + pay.id + '/post', {}, 503);
+  const wb = await workspace();
+  const otherEntries = wb.entries.filter(
+    (x: any) => x.account_id === other && !x.offset_id,
+  );
+  const cheques = otherEntries.filter((x: any) =>
+    x.reference.startsWith('BATCH-'),
+  );
+  const open = Number(wb.accounts.find((x: any) => x.id === other).opening);
+  const close =
+    open +
+    otherEntries.reduce((n: number, x: any) => n + Number(x.amount), 0) -
+    750;
+  const statementLines = [
+    header,
+    ...otherEntries
+      .filter((x: any) => !x.reference.startsWith('BATCH-'))
+      .map((x: any) => [today, x.reference, x.amount].join(',')),
+    today + ',CHEQUE-BATCH,-300000',
+    today + ',FILE-PAY,-750',
+  ];
+  const bankFile = {
+    account: other,
+    from: today,
+    to: today,
+    opening: String(open),
+    closing: String(close),
+    csv: statementLines.join('\n'),
+  };
+  const firstFile = await run('STATEMENT', {
+    ...bankFile,
+    closing: String(close + 1),
+    csv: bankFile.csv + '\n' + today + ',ERROR,1',
+  });
+  const bankLines = (await workspace()).lines.filter(
+    (x: any) => x.statement_id === firstFile,
+  );
+  const debit = bankLines.find((x: any) => x.reference === 'FILE-PAY'),
+    batchLine = bankLines.find((x: any) => x.reference === 'CHEQUE-BATCH');
+  const entryIds = cheques.map((x: any) => x.id).join(',');
+  await rejectedReview('MATCH', { line: batchLine.id, entry: cheques[0].id });
+  await run('GROUP_MATCH', { line: batchLine.id, entries: entryIds });
+  await run('UNMATCH', { line: batchLine.id });
+  expect(
+    (await workspace()).cheques.filter(
+      (x: any) => x.book_id === chequeBook && x.state === 'PRESENTED',
+    ),
+  ).toHaveLength(2);
+  await run('GROUP_MATCH', { line: batchLine.id, entries: entryIds });
+  const bankProof = {
+    target: wire,
+    line: debit.id,
+    sourceNumber: '002-REVISED',
+    bank: 'NMB',
+    beneficiary: '12345001',
+  };
+  await rejectedReview('EFT_VERIFY', { ...bankProof, beneficiary: '99999' });
+  const withdrawn = await run('EFT_VERIFY', bankProof);
+  await run('EFT_RELEASE', {
+    target: withdrawn,
+    description: 'Recheck the remittance advice',
+  });
+  const proofId = await run('EFT_VERIFY', bankProof);
+  expect(
+    (await call(checker, 'cash-bank/documents/' + proofId + '?' + f.query))
+      .approved_eft,
+  ).toMatchObject({
+    sourceAccountNumber: '002-REVISED',
+    beneficiary: '12345001',
+    amount: expect.any(String),
+  });
+  await post(
+    maker,
+    'cash-bank',
+    {
+      input: input('FEE', {
+        line: debit.id,
+        account: other,
+        amount: '750',
+        role: 'INTERNET',
+      }),
+    },
+    409,
+  );
+  await rejectedReview('WITHDRAW_STATEMENT', {
+    statement: firstFile,
+    description: 'Carries the supplier debit',
+  });
+  await rejectedReview('STATEMENT', {
+    ...bankFile,
+    replaces: firstFile,
+    csv: statementLines.slice(0, -1).join('\n'),
+    closing: String(close + 750),
+  });
+  const sameReference = (await workspace()).documents.find(
+    (x: any) => x.id === firstFile,
+  ).reference;
+  const fixedFile = await run(
+    'STATEMENT',
+    { ...bankFile, replaces: firstFile },
+    sameReference,
+  );
+  const activeLines = (await workspace()).lines.filter(
+    (x: any) => x.statement_id === fixedFile,
+  );
+  expect(activeLines.find((x: any) => x.id === batchLine.id).match_count).toBe(
+    2,
+  );
+  expect(activeLines.find((x: any) => x.id === debit.id).proof_id).toBe(
+    proofId,
+  );
+  const reg = await call(maker, 'payables?' + f.query);
+  expect(reg.statementVerifiedVouchers).toContain(pay.id);
+  await post(maker, 'payables/' + pay.id + '/instructions', {}, 409);
+  const [one, two] = await Promise.all([
+    post(maker, 'payables/' + pay.id + '/post'),
+    post(maker, 'payables/' + pay.id + '/post'),
+  ]);
+  expect(one.candidate_id).toBe(two.candidate_id);
+  await rejectedReview('EFT_RELEASE', {
+    target: proofId,
+    description: 'Voucher already sent to GL',
+  });
+  const fileJournal = await approveJournal(one.candidate_id);
+  expect((await post(maker, 'payables/' + pay.id + '/post')).candidate_id).toBe(
+    one.candidate_id,
+  );
+  const posted = (await workspace()).entries.filter(
+    (x: any) => x.journal_id === fileJournal && x.account_id === other,
+  );
+  expect(posted).toHaveLength(1);
+  expect(posted[0].line_id).toBe(debit.id);
+  await rejectedReview('UNMATCH', { line: debit.id });
+  await run('AUTO_MATCH', { statement: fixedFile });
+  const checkedFile = await call(
+    checker,
+    'cash-bank/statements/' + fixedFile + '?' + f.query,
+  );
+  expect(Number(checkedFile.unmatched)).toBe(0);
+  expect(Number(checkedFile.difference)).toBe(0);
+  await run('SIGNOFF', { statement: fixedFile });
+
+  const nextForecast = () =>
+    call(
+      checker,
+      'cash-bank/forecast?' + f.query + '&from=' + tomorrow + '&to=' + tomorrow,
+    );
+  const remain = (fc: any, ref: string) =>
+    Number(
+      fc.items.find(
+        (x: any) => x.source === 'Treasury plan' && x.reference === ref,
+      )?.amount ?? 0,
+    );
+  await run('OPEN', { account: till, amount: String(await cash()) });
+  const planRef = 'EXPECTED-25000';
+  await run(
+    'PLAN',
+    {
+      account: till,
+      direction: 'INFLOW',
+      due: today,
+      amount: '25000',
+      description: 'Cash collection',
+    },
+    planRef,
+  );
+  const dayForecast = () =>
+    call(
+      checker,
+      'cash-bank/forecast?' + f.query + '&from=' + today + '&to=' + today,
+    );
+  const todayBefore = (await dayForecast()).totals.find(
+    (x: any) => x.currency === 'TZS',
+  );
+  const before = await nextForecast();
+  expect(remain(before, planRef)).toBe(25000);
+  await run(
+    'RECEIPT',
+    { account: till, role: 'FEES', amount: '25000' },
+    planRef,
+  );
+  const todayAfter = (await dayForecast()).totals.find(
+    (x: any) => x.currency === 'TZS',
+  );
+  expect(
+    Number(todayBefore.expectedInflow) - Number(todayAfter.expectedInflow),
+  ).toBe(25000);
+  expect(
+    Number(todayAfter.actualInflow) - Number(todayBefore.actualInflow),
+  ).toBe(25000);
+  expect(todayAfter.closing).toBe(todayBefore.closing);
+  const after = await nextForecast();
+  expect(remain(after, planRef)).toBe(0);
+  const tz = (fc: any) => fc.totals.find((x: any) => x.currency === 'TZS');
+  expect(Number(tz(after).opening) - Number(tz(before).opening)).toBe(25000);
+  expect(tz(after).closing).toBe(tz(before).closing);
+  const partialRef = 'PLANNED-PAYMENT';
+  const partial = await run(
+    'PLAN',
+    {
+      account: till,
+      direction: 'OUTFLOW',
+      due: today,
+      amount: '30000',
+      description: 'Two instalments',
+    },
+    partialRef,
+  );
+  await run(
+    'PAYMENT',
+    { account: till, role: 'INTERNET', amount: '12000' },
+    partialRef,
+  );
+  const secondPayment = await run(
+    'PAYMENT',
+    { account: till, role: 'INTERNET', amount: '18000' },
+    'OTHER-REFERENCE',
+  );
+  const paymentEntry = (await workspace()).entries.find(
+    (x: any) => x.account_id === till && x.reference === 'OTHER-REFERENCE',
+  ).id;
+  expect(remain(await nextForecast(), partialRef)).toBe(-18000);
+  await run('LINK_PLAN', { target: partial, entry: paymentEntry });
+  expect(remain(await nextForecast(), partialRef)).toBe(0);
+  await run('UNLINK_PLAN', { target: partial, entry: paymentEntry });
+  expect(remain(await nextForecast(), partialRef)).toBe(-18000);
+  await run('LINK_PLAN', { target: partial, entry: paymentEntry });
+  await run('REVERSE', { target: secondPayment });
+  expect(remain(await nextForecast(), partialRef)).toBe(-18000);
+  await run('CLOSE', { account: till, amount: String(await cash()) });
+
+  const finalTransfer = await run(
+    'TRANSFER',
+    {
+      account: usd,
+      destination: other,
+      role: 'TRANSIT',
+      amount: '0.99',
+      destinationAmount: '2450',
+    },
+    'FINAL-USD',
+    tomorrow,
+  );
+  await run('RECEIVE', { target: finalTransfer }, 'FINAL-TZS', tomorrow);
+  const lastStatement = await run(
+    'STATEMENT',
+    {
+      account: usd,
+      from: tomorrow,
+      to: tomorrow,
+      opening: '0.99',
+      closing: '0',
+      csv: header + '\n' + tomorrow + ',FINAL-USD,-0.99',
+    },
+    undefined,
+    tomorrow,
+  );
+  await run('AUTO_MATCH', { statement: lastStatement }, undefined, tomorrow);
+  await run('SIGNOFF', { statement: lastStatement }, undefined, tomorrow);
+  await rejectedReview('DEACTIVATE', { account: usd }, tomorrow);
+  // A pre-upgrade account may already be closed with the transfer difference still on the transit GL.
+  await f.db.query('UPDATE finance_cb_accounts SET active=false WHERE id=$1', [
+    usd,
+  ]);
+  await run(
+    'FX_SETTLE',
+    { target: finalTransfer, role: 'INTERNET' },
+    undefined,
+    tomorrow,
+  );
+  const fxResult = await workspace();
+  expect(
+    fxResult.transfers.find((x: any) => x.id === finalTransfer).fx_id,
+  ).toBeTruthy();
+  expect(fxResult.accounts.find((x: any) => x.id === usd).active).toBe(false);
 }

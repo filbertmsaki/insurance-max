@@ -178,6 +178,31 @@ export async function payment(c: Context) {
   p.amount = fromMinor(net, c.scale);
   return p;
 }
+export async function verifiedStatementPayments(
+  m: Context['m'],
+  bookId: string,
+  vouchers?: string[],
+): Promise<
+  {
+    id: string;
+    voucher_id: string;
+    reference: string;
+    day: string;
+    verified_at: Date;
+  }[]
+> {
+  const [schema] = await m.query(
+    "SELECT to_regclass('public.finance_cb_ap_proofs') IS NOT NULL installed",
+  );
+  if (!schema.installed) return [];
+  return m.query(
+    `SELECT p.id,p.voucher_id,l.reference,l.day::text,d.reviewed_at verified_at
+    FROM finance_cb_ap_proofs p JOIN finance_cb_documents d ON d.id=p.id JOIN finance_cb_statement_lines l ON l.id=p.line_id
+    JOIN finance_cb_statements s ON s.id=l.statement_id WHERE p.book_id=$1 AND p.released_id IS NULL AND p.entry_id IS NULL
+    AND d.state='POSTED' AND s.withdrawn_id IS NULL AND ($2::uuid[] IS NULL OR p.voucher_id=ANY($2))`,
+    [bookId, vouchers ?? null],
+  );
+}
 export async function activeBatch(c: Pick<Context, 'm' | 'b'>, id: string) {
   const [batch] = await c.m.query(
     `SELECT d.* FROM finance_ap_batch_items i JOIN finance_ap_records d ON d.id=i.batch_id
@@ -197,6 +222,8 @@ export async function batch(c: Context) {
   const p = basePlan(c, {
     description: text(c.input.details.description, 'batch description'),
   });
+  if ((await verifiedStatementPayments(c.m, c.b.book_id, ids)).length)
+    conflict('A statement-verified voucher must be posted individually.');
   p.batchItems = ids;
   let total = 0n;
   for (const id of ids) {

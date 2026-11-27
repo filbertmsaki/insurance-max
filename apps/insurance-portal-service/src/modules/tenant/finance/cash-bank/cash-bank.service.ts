@@ -24,16 +24,18 @@ import {
   doc,
   field,
   validateInput,
+  uuid,
   journalKinds,
   type Context,
   type Document,
   type Input,
 } from './cash-bank.types';
-import { cutover, cashMaster, setupOrShift } from './cash-bank-setup';
+import { cutover, setupOrShift } from './cash-bank-setup';
 import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
 import {
   channelOperation,
   finishMovement,
+  openEft,
   payableInstruction,
   prepareMovement,
 } from './cash-bank-movements';
@@ -91,7 +93,7 @@ export class CashBankService {
         );
         const docs = await m.query(
           `SELECT d.id,d.sequence,d.kind,d.reference,d.day::text,d.state,d.maker_id,d.reviewer_id,d.reason,d.candidate_id,d.journal_id,c.subject_hash candidate_hash,
-        d.input->'fields'->>'target' target
+        d.input->'fields'->>'target' target,d.input->'fields'->>'apVoucher' ap_voucher,d.input->'fields'->>'account' account_id
         FROM finance_cb_documents d LEFT JOIN finance_journal_candidates c ON c.id=d.candidate_id WHERE d.book_id=$1 ORDER BY sequence DESC`,
           [b.book_id],
         );
@@ -104,7 +106,7 @@ export class CashBankService {
           [b.company_id],
         );
         const statements = await m.query(
-          'SELECT s.*,s.starts::text,s.ends::text FROM finance_cb_statements s JOIN finance_cb_accounts a ON a.id=s.account_id WHERE a.book_id=$1 ORDER BY s.ends DESC',
+          'SELECT s.id,s.account_id,s.starts::text,s.ends::text,s.opening,s.closing,s.withdrawn_id,s.signoff_id FROM finance_cb_statements s JOIN finance_cb_accounts a ON a.id=s.account_id WHERE a.book_id=$1 ORDER BY s.ends DESC,s.withdrawn_id NULLS FIRST',
           [b.book_id],
         );
         return {
@@ -126,6 +128,14 @@ export class CashBankService {
             [b.book_id],
           ),
           statements,
+          eftProofs: await m.query(
+            'SELECT p.id,p.eft_id,p.voucher_id,p.line_id,p.entry_id FROM finance_cb_ap_proofs p WHERE p.book_id=$1 AND released_id IS NULL',
+            [b.book_id],
+          ),
+          planEntries: await m.query(
+            'SELECT plan_id,entry_id,day::text,amount FROM finance_cb_plan_entries($1,$2)',
+            [b.book_id, today],
+          ),
           payables: await m.query(
             "SELECT v.id,v.reference,v.amount,v.currency,a.id account_id FROM finance_ap_status v JOIN finance_cb_accounts a ON a.book_id=v.book_id AND a.account_code=v.data->>'bankAccount' AND a.kind='BANK' AND a.currency=v.currency WHERE v.book_id=$1 AND v.status='APPROVED' AND v.kind IN ('PAYMENT','IMPREST','ADVANCE') AND v.data->>'bankId' IS NOT NULL ORDER BY v.due_date,v.reference",
             [b.book_id],
@@ -156,7 +166,7 @@ export class CashBankService {
             [b.book_id],
           ),
           lines: await m.query(
-            'SELECT l.*,l.day::text,s.account_id,x.entry_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_accounts a ON a.id=s.account_id LEFT JOIN finance_cb_matches x ON x.line_id=l.id WHERE a.book_id=$1 ORDER BY s.ends DESC,l.ordinal',
+            `SELECT l.*,l.day::text,s.account_id,s.signoff_id,(x.entries)[1] entry_id,cardinality(x.entries) match_count,p.id proof_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_accounts a ON a.id=s.account_id LEFT JOIN LATERAL (SELECT array_agg(mx.entry_id ORDER BY mx.entry_id) entries FROM finance_cb_matches mx WHERE mx.line_id=l.id)x ON true LEFT JOIN finance_cb_ap_proofs p ON p.line_id=l.id AND p.released_id IS NULL WHERE a.book_id=$1 AND s.withdrawn_id IS NULL ORDER BY s.ends DESC,l.ordinal`,
             [b.book_id],
           ),
         };
@@ -164,8 +174,27 @@ export class CashBankService {
     );
   }
   detail(a: FoundationActor, s: FinanceBookSelection, id: string) {
-    return this.run(a, s, 'READ', 'Read cash document and evidence', (c) =>
-      doc(c, id),
+    return this.run(
+      a,
+      s,
+      'READ',
+      'Read cash document and evidence',
+      async (c) => {
+        const r = await doc(c, id);
+        if (r.kind === 'EFT_VERIFY') {
+          const [eft] = await c.m.query(
+            "SELECT eft_export FROM finance_cb_documents WHERE book_id=$1 AND id::text=lower($2) AND kind='EFT' AND state='POSTED'",
+            [s.bookId, r.input.fields.target ?? ''],
+          );
+          return { ...r, approved_eft: eft?.eft_export };
+        }
+        if (r.kind !== 'STATEMENT') return r;
+        const [archived] = await c.m.query(
+          'SELECT archived_lines FROM finance_cb_statements WHERE id=$1 AND withdrawn_id IS NOT NULL',
+          [id],
+        );
+        return archived ? { ...r, archived_lines: archived.archived_lines } : r;
+      },
     );
   }
   cutover(
@@ -201,30 +230,30 @@ export class CashBankService {
       'PREPARE',
       'Export approved EFT instruction',
       async (c) => {
-        const r = await doc(c, id, 'EFT'),
-          f = r.input.fields,
-          ac = await account(c, f.account);
-        const [done] = await c.m.query(
-          "SELECT id FROM finance_cb_documents WHERE book_id=$1 AND kind IN ('EFT_SETTLE','EFT_CANCEL','EFT_LINK') AND state='POSTED' AND input->'fields'->>'target'=$2",
-          [s.bookId, id],
+        const r = await openEft(c, id);
+        if (r.input.fields.apVoucher)
+          await payableInstruction(c, r.input.fields);
+        if (!r.eft_export)
+          conflict(
+            'Withdraw and reapprove this EFT to establish the payment instructions.',
+          );
+        const snapshot = r.eft_export!;
+        return Object.fromEntries(
+          [
+            'instructionId',
+            'reference',
+            'date',
+            'source',
+            'sourceBank',
+            'sourceAccountName',
+            'sourceAccountNumber',
+            'currency',
+            'amount',
+            'payee',
+            'bank',
+            'beneficiary',
+          ].map((key) => [key, snapshot[key]]),
         );
-        if (f.apVoucher) await payableInstruction(c, f);
-        if (done) conflict('This EFT is settled or cancelled.');
-        const institution = await cashMaster(c, ac.institution, 'BANK');
-        return {
-          instructionId: r.id,
-          reference: r.reference,
-          date: r.day,
-          source: ac.code,
-          sourceBank: institution.name,
-          sourceAccountName: ac.name,
-          sourceAccountNumber: ac.account_number!,
-          currency: ac.currency,
-          amount: f.amount,
-          payee: f.payee,
-          bank: f.bank,
-          beneficiary: f.beneficiary,
-        };
       },
     );
   }
@@ -252,6 +281,10 @@ export class CashBankService {
           journalKinds.includes(v.kind) ||
           [
             'ACCOUNT',
+            'WITHDRAW_STATEMENT',
+            'EFT_VERIFY',
+            'EFT_RELEASE',
+            'RETIRE_LEAF',
             'STATEMENT',
             'TIMING',
             'SIGNOFF',
@@ -262,6 +295,19 @@ export class CashBankService {
           ].includes(v.kind)
         )
           await ownedEvidence(m, b, v.evidence);
+        if (v.kind === 'STATEMENT') {
+          const replaces = v.fields.replaces ? uuid(v.fields.replaces) : null;
+          const [used] = await m.query(
+            `SELECT d.id FROM finance_cb_documents d LEFT JOIN finance_cb_statements st ON st.id=d.id
+            WHERE d.book_id=$1 AND d.kind='STATEMENT' AND upper(d.reference)=upper($2) AND d.state IN ('PENDING','POSTED')
+            AND st.withdrawn_id IS NULL AND d.id IS DISTINCT FROM $3::uuid`,
+            [b.book_id, v.reference.trim(), replaces],
+          );
+          if (used)
+            conflict(
+              'This statement reference is in use. Select the unsigned statement to replace.',
+            );
+        }
         if (v.kind === 'EFT' && v.fields.apVoucher)
           v = { ...v, fields: await payableInstruction(c, v.fields) };
         const [r] = await m.query(
@@ -279,6 +325,15 @@ export class CashBankService {
             a.naturalPersonId,
           ],
         );
+        if (v.kind === 'EFT') {
+          const [snap] = await m.query(
+            'WITH saved AS (UPDATE finance_cb_documents SET eft_export=finance_cb_eft_export(id,clock_timestamp()) WHERE id=$1 RETURNING eft_export) SELECT eft_export FROM saved',
+            [r.id],
+          );
+          if (!snap.eft_export)
+            conflict('Choose an active bank account for the instruction.');
+          r.eft_export = snap.eft_export;
+        }
         if (journalKinds.includes(v.kind)) {
           const p = await prepareMovement(c, r);
           const roles = p.original

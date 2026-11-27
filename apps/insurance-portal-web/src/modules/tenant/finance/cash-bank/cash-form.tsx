@@ -43,6 +43,8 @@ export interface CashData {
   cashiers: CashRow[];
   transfers: CashRow[];
   cheques: CashRow[];
+  eftProofs?: CashRow[];
+  planEntries?: { plan_id: string; entry_id: string }[];
 }
 const fields: Record<CashBankKind, string[]> = {
   BANK: ['name', 'branchName', 'swift'],
@@ -103,6 +105,7 @@ const fields: Record<CashBankKind, string[]> = {
   REVERSE: ['target'],
   FX_SETTLE: ['target', 'role'],
   CHEQUEBOOK: ['account', 'first', 'last'],
+  RETIRE_LEAF: ['account', 'chequebook', 'serial', 'status', 'description'],
   CHEQUE: ['account', 'chequebook', 'serial', 'payee', 'role', 'amount'],
   PRESENT: ['target'],
   STOP: ['target'],
@@ -121,6 +124,7 @@ const fields: Record<CashBankKind, string[]> = {
   EFT_CANCEL: ['target'],
   STATEMENT: [
     'account',
+    'replaces',
     'from',
     'to',
     'opening',
@@ -145,11 +149,28 @@ const fields: Record<CashBankKind, string[]> = {
   FEE: ['account', 'line', 'amount', 'role'],
   INTEREST: ['account', 'line', 'amount', 'role'],
   EFT_LINK: ['target', 'line', 'entry'],
+  EFT_VERIFY: [
+    'target',
+    'line',
+    'sourceNumber',
+    'bank',
+    'beneficiary',
+    'confirmation',
+  ],
+  EFT_RELEASE: ['target', 'description'],
+  WITHDRAW_STATEMENT: ['statement', 'description'],
+  GROUP_MATCH: ['line', 'entries'],
+  LINK_PLAN: ['target', 'entry'],
+  UNLINK_PLAN: ['target', 'entry'],
   PLAN: ['account', 'direction', 'amount', 'due', 'description'],
   CANCEL_PLAN: ['target'],
   BANK_RULE: ['account', 'pattern', 'classification', 'direction', 'role'],
 };
 export const labels: Record<string, string> = {
+  replaces: 'Replace unsigned statement (optional)',
+  entries: 'Cashbook entries in this bank line',
+  sourceNumber: 'Debited account number on bank evidence',
+  status: 'Cheque leaf condition',
   master: 'Registered bank or cash office',
   rule: 'Active statement rule',
   apVoucher: 'Approved payable voucher (optional)',
@@ -219,7 +240,7 @@ const transfers = [
 ];
 const options = (v: string[]): Option[] =>
   v.map((value) => ({ value, label: value }));
-const mapped = (rows: CashRow[], label: (r: CashRow) => string) =>
+const mapped = <T extends CashRow>(rows: T[], label: (r: T) => string) =>
   rows.map((r) => ({ value: r.id, label: label(r) }));
 export function CashForm({
   w,
@@ -277,7 +298,11 @@ export function CashForm({
     if (line) D(String(line.day));
     F((prev) => ({
       ...prev,
-      ...(k === 'account' ? { apVoucher: '' } : {}),
+      ...(k === 'account'
+        ? { apVoucher: '', replaces: '', chequebook: '' }
+        : {}),
+      ...(k === 'line' ? { entries: '', entry: '' } : {}),
+      ...(k === 'target' ? { entry: '', line: '' } : {}),
       ...(line
         ? {
             account: String(line.account_id),
@@ -315,7 +340,17 @@ export function CashForm({
     }
     if (k === 'rule') return mapped(w.rules, (x) => x.pattern + ' · ' + x.role);
     if (k === 'manager' || k === 'cashier') return w.staff;
-    if (k === 'chequebook') return docs(['CHEQUEBOOK']);
+    if (k === 'chequebook')
+      return mapped(
+        w.documents.filter(
+          (x) =>
+            x.kind === 'CHEQUEBOOK' &&
+            x.state === 'POSTED' &&
+            x.account_id === f.account,
+        ),
+        (x) => x.reference,
+      );
+    if (k === 'status') return options(['LOST', 'SPOILED']);
     if (k === 'direction') return options(['INFLOW', 'OUTFLOW']);
     if (k === 'classification') return options(['FEE', 'INTEREST']);
     if (k === 'delimiter')
@@ -363,6 +398,7 @@ export function CashForm({
           'EFT',
           'CHEQUE',
           'CHEQUEBOOK',
+          'RETIRE_LEAF',
           'TRANSFER',
           'REPLENISH',
           'WITHDRAW',
@@ -385,24 +421,60 @@ export function CashForm({
         w.lines
           .filter(
             (x) =>
-              kind === 'EFT_LINK' ||
-              (kind === 'UNMATCH' ? x.entry_id : !x.entry_id),
+              !x.proof_id &&
+              (kind === 'EFT_LINK' ||
+                (!x.signoff_id &&
+                  (kind === 'UNMATCH' ? x.entry_id : !x.entry_id))),
           )
-          .filter((x) => !f.account || x.account_id === f.account),
+          .filter((x) => !f.account || x.account_id === f.account)
+          .filter(
+            (x) =>
+              !kind.startsWith('EFT') ||
+              (f.target &&
+                x.account_id ===
+                  w.documents.find((d) => d.id === f.target)?.account_id &&
+                Number(x.amount) < 0),
+          ),
         (x) => x.day + ' · ' + x.reference + ' · ' + x.amount,
       );
-    if (k === 'entry')
+    if (k === 'entry' && (kind === 'LINK_PLAN' || kind === 'UNLINK_PLAN')) {
+      const plan = w.documents.find((d) => d.id === f.target);
+      return mapped(
+        w.entries.filter(
+          (x) =>
+            plan &&
+            x.account_id === plan.account_id &&
+            x.journal_id &&
+            (kind === 'UNLINK_PLAN'
+              ? w.planEntries?.some(
+                  (l) => l.plan_id === plan.id && l.entry_id === x.id,
+                )
+              : !w.planEntries?.some((l) => l.entry_id === x.id)),
+        ),
+        (x) => x.day + ' · ' + x.reference + ' · ' + x.amount,
+      );
+    }
+    if (k === 'entry' || k === 'entries')
       return mapped(
         w.entries.filter((x) =>
           kind === 'EFT_LINK'
             ? !!x.ap_document_id && (!x.line_id || x.line_id === f.line)
-            : !x.line_id && !x.offset_id,
+            : !x.line_id &&
+              !x.offset_id &&
+              (!f.line ||
+                x.account_id ===
+                  w.lines.find((l) => l.id === f.line)?.account_id),
         ),
         (x) => x.code + ' · ' + x.reference + ' · ' + x.amount,
       );
-    if (k === 'statement')
+    if (k === 'statement' || k === 'replaces')
       return mapped(
-        w.statements.filter((x) => !x.signoff_id),
+        w.statements.filter(
+          (x) =>
+            !x.signoff_id &&
+            !x.withdrawn_id &&
+            (k !== 'replaces' || x.account_id === f.account),
+        ),
         (x) =>
           w.accounts.find((a) => a.id === x.account_id)?.code + ' · ' + x.ends,
       );
@@ -424,8 +496,44 @@ export function CashForm({
           w.counts,
           (x) => x.code + ' · ' + x.counted + ' / ' + x.expected,
         );
-      if (kind.startsWith('EFT')) return docs(['EFT']);
-      if (kind === 'CANCEL_PLAN') return docs(['PLAN']);
+      if (kind === 'EFT_RELEASE')
+        return mapped(
+          (w.eftProofs ?? []).filter((p) => !p.entry_id),
+          (p) => w.documents.find((d) => d.id === p.eft_id)?.reference ?? p.id,
+        );
+      if (kind.startsWith('EFT'))
+        return mapped(
+          w.documents.filter(
+            (d) =>
+              d.kind === 'EFT' &&
+              d.state === 'POSTED' &&
+              !w.eftProofs?.some((p) => p.eft_id === d.id) &&
+              !w.documents.some(
+                (x) =>
+                  x.target === d.id &&
+                  x.state === 'POSTED' &&
+                  ['EFT_LINK', 'EFT_SETTLE', 'EFT_CANCEL'].includes(x.kind),
+              ) &&
+              (kind !== 'EFT_VERIFY' || d.ap_voucher) &&
+              (kind !== 'EFT_SETTLE' || !d.ap_voucher),
+          ),
+          (x) => x.reference,
+        );
+      if (['CANCEL_PLAN', 'LINK_PLAN', 'UNLINK_PLAN'].includes(kind))
+        return mapped(
+          w.documents.filter(
+            (d) =>
+              d.kind === 'PLAN' &&
+              d.state === 'POSTED' &&
+              !w.documents.some(
+                (x) =>
+                  x.kind === 'CANCEL_PLAN' &&
+                  x.state === 'POSTED' &&
+                  x.target === d.id,
+              ),
+          ),
+          (x) => x.reference,
+        );
       if (kind !== 'REVERSE') return docs(['CHEQUE']);
       return mapped(
         w.documents.filter((x) => !!x.journal_id),
@@ -528,6 +636,36 @@ export function CashForm({
           type="date"
         />
         {visible.map((k) => {
+          if (k === 'entries') {
+            const selected = f.entries?.split(',').filter(Boolean) ?? [];
+            return (
+              <fieldset key={k} className="space-y-1 sm:col-span-2">
+                <legend>{labels[k]}</legend>
+                {f.line ? (
+                  (choices(k) ?? []).map((o) => (
+                    <label className="block text-sm" key={o.value}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(o.value)}
+                        onChange={(e) =>
+                          change(
+                            k,
+                            (e.target.checked
+                              ? [...selected, o.value]
+                              : selected.filter((x) => x !== o.value)
+                            ).join(','),
+                          )
+                        }
+                      />{' '}
+                      {o.label}
+                    </label>
+                  ))
+                ) : (
+                  <p>Select a bank line to see its cashbook entries.</p>
+                )}
+              </fieldset>
+            );
+          }
           if (k === 'csv')
             return (
               <label key={k} className="grid gap-1 text-sm">
@@ -564,19 +702,22 @@ export function CashForm({
               </label>
             );
           const label =
-            k === 'pattern'
-              ? 'Text in bank reference or description'
-              : k === 'classification'
-                ? 'Bank adjustment type'
-                : k === 'destinationAmount'
-                  ? 'Agreed destination amount in receiving currency'
-                  : k === 'role'
-                    ? kind === 'ACCOUNT'
-                      ? 'Account GL role'
-                      : transfers.includes(kind)
-                        ? 'Cash-in-transit GL role'
-                        : labels[k]
-                    : labels[k];
+            k === 'description' &&
+            ['WITHDRAW_STATEMENT', 'EFT_RELEASE', 'RETIRE_LEAF'].includes(kind)
+              ? 'Reason'
+              : k === 'pattern'
+                ? 'Text in bank reference or description'
+                : k === 'classification'
+                  ? 'Bank adjustment type'
+                  : k === 'destinationAmount'
+                    ? 'Agreed destination amount in receiving currency'
+                    : k === 'role'
+                      ? kind === 'ACCOUNT'
+                        ? 'Account GL role'
+                        : transfers.includes(kind)
+                          ? 'Cash-in-transit GL role'
+                          : labels[k]
+                      : labels[k];
           return (
             <Field
               key={k}
@@ -615,9 +756,25 @@ export function CashForm({
       </div>
       {kind === 'EFT' && f.apVoucher && (
         <p className="text-sm">
-          The instruction uses the voucher amount and approved beneficiary.
-          After posting the voucher in Accounts Payable, select Settle EFT
-          against an existing payment.
+          The instruction uses the voucher amount and approved beneficiary. For
+          a bank file, select Verify supplier EFT against a bank statement, then
+          submit the voucher in Accounts Payable. For a voucher already posted
+          with a signed bank confirmation, select Settle EFT against an existing
+          payment.
+        </p>
+      )}
+      {kind === 'EFT_VERIFY' && (
+        <p className="text-sm">
+          Attach the bank evidence and copy its debited account and beneficiary
+          details. An independent reviewer confirms the debit before the payable
+          journal can be submitted.
+        </p>
+      )}
+      {kind === 'PLAN' && (
+        <p className="text-sm">
+          A posted receipt or payment in the same account and direction applies
+          automatically when its reference matches the plan. Use Apply a
+          cashbook entry to a plan for another reference.
         </p>
       )}
       {kind === 'ACCOUNT' && cutover.error && (

@@ -324,14 +324,14 @@ export async function setupOrShift(c: Context, r: Document) {
   }
   if (r.kind === 'DEACTIVATE') {
     const [pending] = await m.query(
-      `SELECT 1 WHERE EXISTS(SELECT 1 FROM finance_cb_shifts WHERE account_id=$1 AND close_id IS NULL) OR EXISTS(SELECT 1 FROM finance_cb_transfers WHERE $1 IN(source,destination) AND received_id IS NULL) OR EXISTS(SELECT 1 FROM finance_cb_entries e WHERE e.account_id=$1 AND $2<>'TILL' AND e.offset_id IS NULL AND NOT EXISTS(SELECT 1 FROM finance_cb_matches x WHERE x.entry_id=e.id)) OR EXISTS(SELECT 1 FROM finance_cb_statements WHERE account_id=$1 AND signoff_id IS NULL)
-      OR EXISTS(SELECT 1 FROM finance_cb_documents d WHERE d.input->'fields'->>'account'=$1::text AND (d.state IN ('PENDING','APPROVED') AND d.id<>$3 OR d.kind='EFT' AND d.state='POSTED' AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text)))
+      `SELECT 1 WHERE EXISTS(SELECT 1 FROM finance_cb_shifts WHERE account_id=$1 AND close_id IS NULL) OR EXISTS(SELECT 1 FROM finance_cb_transfers WHERE $1 IN(source,destination) AND (received_id IS NULL OR (fx_difference<>0 AND fx_id IS NULL))) OR EXISTS(SELECT 1 FROM finance_cb_entries e WHERE e.account_id=$1 AND $2<>'TILL' AND e.offset_id IS NULL AND NOT EXISTS(SELECT 1 FROM finance_cb_matches x WHERE x.entry_id=e.id)) OR EXISTS(SELECT 1 FROM finance_cb_statements WHERE account_id=$1 AND signoff_id IS NULL AND withdrawn_id IS NULL)
+      OR EXISTS(SELECT 1 FROM finance_cb_documents d WHERE (d.input->'fields'->>'account'=$1::text OR d.input->'fields'->>'destination'=$1::text) AND (d.state IN ('PENDING','APPROVED') AND d.id<>$3 OR d.kind='EFT' AND d.state='POSTED' AND NOT EXISTS(SELECT 1 FROM finance_cb_ap_proofs p WHERE p.eft_id=d.id AND p.entry_id IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text)))
       OR EXISTS(SELECT 1 FROM finance_ap_status v WHERE v.book_id=$4 AND v.kind IN ('PAYMENT','ADVANCE','IMPREST') AND v.data->>'bankAccount'=$5 AND v.status IN ('PENDING','APPROVED','AWAITING_GL'))`,
       [ac.id, ac.kind, r.id, b.book_id, ac.account_code],
     );
     if (pending || !new Decimal(ac.balance).eq(0))
       conflict(
-        'Clear the account balance, commitments, shifts, transfers and statement items before closure.',
+        'Clear the account balance, commitments, shifts, transfer exchange differences and statement items before closure.',
       );
     await m.query('UPDATE finance_cb_accounts SET active=false WHERE id=$1', [
       ac.id,

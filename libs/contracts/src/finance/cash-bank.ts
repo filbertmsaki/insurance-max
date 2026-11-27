@@ -32,6 +32,7 @@ export const CASH_BANK_GROUPS = {
   'Payment channels': {
     CHEQUEBOOK: 'Register cheque book',
     CHEQUE: 'Issue cheque',
+    RETIRE_LEAF: 'Record lost or spoiled cheque leaf',
     PRESENT: 'Present cheque',
     STOP: 'Stop cheque',
     VOID: 'Cancel cheque',
@@ -39,11 +40,15 @@ export const CASH_BANK_GROUPS = {
     EFT: 'Prepare EFT instruction',
     EFT_SETTLE: 'Confirm EFT settlement',
     EFT_CANCEL: 'Cancel unexecuted EFT',
+    EFT_VERIFY: 'Verify supplier EFT against a bank statement',
+    EFT_RELEASE: 'Withdraw supplier EFT verification',
     EFT_LINK: 'Settle EFT against an existing payment',
     WALLET_SETTLE: 'Settle mobile wallet into bank',
   },
   'Statements and reconciliation': {
     STATEMENT: 'Import bank statement',
+    WITHDRAW_STATEMENT: 'Withdraw an unsigned statement',
+    GROUP_MATCH: 'Match several entries to one bank line',
     MATCH: 'Match statement line',
     AUTO_MATCH: 'Match exact references',
     TIMING: 'Document outstanding item',
@@ -56,6 +61,8 @@ export const CASH_BANK_GROUPS = {
   },
   'Treasury and forecasts': {
     PLAN: 'Plan cash inflow or outflow',
+    LINK_PLAN: 'Apply a cashbook entry to a plan',
+    UNLINK_PLAN: 'Remove a cashbook entry from a plan',
     CANCEL_PLAN: 'Cancel planned movement',
   },
 } as const;
