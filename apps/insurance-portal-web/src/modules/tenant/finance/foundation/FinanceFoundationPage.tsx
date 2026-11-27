@@ -1,3 +1,5 @@
+import { useFinanceBook } from '../use-finance-view';
+import { FinanceBookEmpty } from '../FinanceBookNavigation';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw, ShieldCheck, FileSearch, BookOpen } from 'lucide-react';
@@ -419,13 +421,19 @@ function BookReview({
   );
 }
 
-function AuthorizedWorkspace({ identity }: { identity: string[] }) {
-  const [book, setBook] = useState('');
+function AuthorizedWorkspace({
+  identity,
+  trialBalance,
+}: {
+  identity: string[];
+  trialBalance?: boolean;
+}) {
   const scopes = useQuery({
     ...readOptions,
     queryKey: ['finance-foundation', ...identity, 'scopes'],
     queryFn: ({ signal }) => foundationReadApi.scopes(signal),
   });
+  const { selected, selectBook } = useFinanceBook(scopes.data);
   if (scopes.isError)
     return (
       <ReadError error={scopes.error} refresh={() => void scopes.refetch()} />
@@ -441,10 +449,7 @@ function AuthorizedWorkspace({ identity }: { identity: string[] }) {
             aria-hidden="true"
           />
           <h2 className="font-semibold">No Finance books available</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Read access may have expired or has not been assigned. Contact your
-            company administrator.
-          </p>
+          <FinanceBookEmpty />
           <Button
             className="mt-4"
             variant="outline"
@@ -455,10 +460,6 @@ function AuthorizedWorkspace({ identity }: { identity: string[] }) {
         </CardContent>
       </Card>
     );
-  // Never carry a selection into a different company or select a book absent from the server list.
-  const selected = book
-    ? scopes.data.find((s) => scopeKey(s).join('/') === book)
-    : scopes.data[0];
   return (
     <div className="space-y-5">
       <Card>
@@ -474,7 +475,12 @@ function AuthorizedWorkspace({ identity }: { identity: string[] }) {
               id="foundation-book"
               className={selectClass}
               value={selected ? scopeKey(selected).join('/') : ''}
-              onChange={(e) => setBook(e.target.value)}
+              onChange={(e) => {
+                const book = scopes.data.find(
+                  (s) => scopeKey(s).join('/') === e.target.value,
+                );
+                if (book) selectBook(book.bookId);
+              }}
             >
               <option value="" disabled>
                 Select an authorized book
@@ -498,7 +504,13 @@ function AuthorizedWorkspace({ identity }: { identity: string[] }) {
           </div>
         </CardContent>
       </Card>
-      {selected ? (
+      {selected && trialBalance ? (
+        <TrialBalancePanel
+          key={selected.bookId}
+          scope={selected}
+          identity={identity}
+        />
+      ) : selected ? (
         <BookReview
           key={scopeKey(selected).join('/')}
           scope={selected}
@@ -516,7 +528,13 @@ function AuthorizedWorkspace({ identity }: { identity: string[] }) {
   );
 }
 
-export function FinanceFoundationPage() {
+export function TrialBalancePage() {
+  return <FinanceFoundationPage trialBalance />;
+}
+
+export function FinanceFoundationPage(
+  options: { trialBalance?: boolean } = {},
+) {
   const { user, authorizationContext: context } = useAuthStore();
   const permitted = Boolean(
     user &&
@@ -543,20 +561,30 @@ export function FinanceFoundationPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Finance foundation"
-        description="Review authorized accounting books and their recorded supporting documents."
-        breadcrumbs={['Finance', 'Foundation review']}
+        title={options.trialBalance ? 'Trial balance' : 'Finance foundation'}
+        description={
+          options.trialBalance
+            ? 'Review balances and account activity for an authorized accounting book.'
+            : 'Review authorized accounting books and their recorded supporting documents.'
+        }
+        breadcrumbs={
+          options.trialBalance
+            ? ['Finance', 'General ledger', 'Trial balance']
+            : ['Finance', 'Foundation review']
+        }
         status={<Badge variant="info">Read-only workspace</Badge>}
       />
-      <Alert>
-        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-        <AlertTitle>Review access only</AlertTitle>
-        <AlertDescription>
-          This workspace cannot prepare, approve, activate or post accounting
-          records. Policies require separate approval and activation. Existing
-          operational Finance permissions are unchanged.
-        </AlertDescription>
-      </Alert>
+      {!options.trialBalance && (
+        <Alert>
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          <AlertTitle>Review access only</AlertTitle>
+          <AlertDescription>
+            This workspace cannot prepare, approve, activate or post accounting
+            records. Policies require separate approval and activation. Existing
+            operational Finance permissions are unchanged.
+          </AlertDescription>
+        </Alert>
+      )}
       {!context ? (
         <p role="status">Checking your current Finance access…</p>
       ) : !identity ? (
@@ -568,7 +596,11 @@ export function FinanceFoundationPage() {
           </AlertDescription>
         </Alert>
       ) : (
-        <AuthorizedWorkspace key={identity.join('/')} identity={identity} />
+        <AuthorizedWorkspace
+          {...options}
+          key={identity.join('/')}
+          identity={identity}
+        />
       )}
     </div>
   );

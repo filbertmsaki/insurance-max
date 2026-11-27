@@ -97,7 +97,14 @@ import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetr
 import { PlatformTiramisIntegrationPage } from '@/modules/platform/tiramis-integration/pages/PlatformTiramisIntegrationPage';
 import { VerificationsPage } from '@/modules/tenant/verifications/pages/VerificationsPage';
 import { FinanceDashboardPage } from '@/modules/tenant/finance/pages/FinanceDashboardPage';
-import { FinanceFoundationPage } from '@/modules/tenant/finance/foundation/FinanceFoundationPage';
+import { FinanceDirectoryPage } from '@/modules/tenant/finance/FinanceDirectoryPage';
+import { financeDirectory } from '@/modules/tenant/finance/finance-navigation';
+import { GeneralLedgerWorkspace } from '@/modules/tenant/finance/journals/GeneralLedgerWorkspace';
+import { FinanceManualInvoicePage } from '@/modules/tenant/finance/pages/FinanceManualInvoicePage';
+import {
+  FinanceFoundationPage,
+  TrialBalancePage,
+} from '@/modules/tenant/finance/foundation/FinanceFoundationPage';
 import { FinanceSetupPage } from '@/modules/tenant/finance/setup/FinanceSetupPage';
 import { FinanceInvoicesPage } from '@/modules/tenant/finance/pages/FinanceInvoicesPage';
 import { FinanceInvoiceDetailPage } from '@/modules/tenant/finance/pages/FinanceInvoiceDetailPage';
@@ -1127,6 +1134,14 @@ export default function App() {
                 }
               >
                 <Route
+                  path="/apps/finance/general-ledger"
+                  element={<GeneralLedgerWorkspace />}
+                />
+                <Route
+                  path="/apps/finance/trial-balance"
+                  element={<TrialBalancePage />}
+                />
+                <Route
                   path="/apps/finance/foundation"
                   element={<FinanceFoundationPage />}
                 />
@@ -1143,6 +1158,31 @@ export default function App() {
                 <Route
                   path="/apps/finance/dashboard"
                   element={<FinanceDashboardPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermission={financeDirectory.anyPermission}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/finance"
+                  element={<FinanceDirectoryPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute
+                    allowedScopes={['company']}
+                    requiredPermission="invoices:create-manual"
+                  />
+                }
+              >
+                <Route
+                  path="/apps/finance/invoices/new"
+                  element={<FinanceManualInvoicePage />}
                 />
               </Route>
               <Route

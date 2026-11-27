@@ -14,6 +14,7 @@ export function Field({
   value,
   change,
   options,
+  optionGroups,
   type = 'text',
   emptyOptionLabel = 'Select',
   suggestions,
@@ -22,15 +23,22 @@ export function Field({
   value: string;
   change: (v: string) => void;
   options?: Option[];
+  optionGroups?: Record<string, readonly string[]>;
   type?: string;
   emptyOptionLabel?: string;
   suggestions?: Option[];
 }) {
   const id = useId(),
     cls = 'rounded border bg-background p-2 text-sm';
+  const option = (o: Option) => (
+    <option key={o.value} value={o.value}>
+      {o.label}
+    </option>
+  );
+  const grouped = optionGroups && new Set(Object.values(optionGroups).flat());
   return (
-    <label htmlFor={id} className="grid gap-1 text-sm">
-      {label}
+    <div className="grid gap-1 text-sm">
+      <label htmlFor={id}>{label}</label>
       {options ? (
         <select
           id={id}
@@ -38,12 +46,19 @@ export function Field({
           value={value}
           onChange={(e) => change(e.target.value)}
         >
-          <option value="">{emptyOptionLabel}</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
+          <option value="" disabled={!!optionGroups}>
+            {emptyOptionLabel}
+          </option>
+          {optionGroups &&
+            Object.entries(optionGroups).map(([label, keys]) => {
+              const items = options.filter((o) => keys.includes(o.value));
+              return items.length ? (
+                <optgroup key={label} label={label}>
+                  {items.map(option)}
+                </optgroup>
+              ) : null;
+            })}
+          {options.filter((o) => !grouped?.has(o.value)).map(option)}
         </select>
       ) : (
         <input
@@ -64,7 +79,7 @@ export function Field({
           ))}
         </datalist>
       )}
-    </label>
+    </div>
   );
 }
 

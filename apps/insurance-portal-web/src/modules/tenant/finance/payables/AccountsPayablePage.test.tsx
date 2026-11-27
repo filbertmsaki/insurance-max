@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,13 +23,15 @@ const common = {
 };
 function mount(employee = false) {
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <AccountsPayablePage employee={employee} />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <AccountsPayablePage employee={employee} />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 it('submits an independently reviewed bill to the book selected in the portal', async () => {

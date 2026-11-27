@@ -1,5 +1,7 @@
+import { financeHref } from '@/modules/tenant/finance/finance-navigation';
+import { findFinanceLinks } from '@/modules/tenant/finance/finance-search';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
@@ -177,6 +179,7 @@ export function SearchOverlay({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const user = useAuthStore((state) => state.user);
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const storageKey = recentKey(user?.id);
@@ -233,10 +236,11 @@ export function SearchOverlay({
   const open_ = (hit: Hit) => {
     remember(term);
     close();
-    navigate(hit.href);
+    navigate(financeHref(hit.href, pathname, search));
   };
 
   const searching = term.length >= MIN_LENGTH;
+  const financeLinks = searching ? findFinanceLinks(user, term) : [];
 
   return (
     <DialogPrimitive.Root
@@ -266,7 +270,7 @@ export function SearchOverlay({
                   if (event.key === 'Enter' && term.length >= MIN_LENGTH)
                     remember(term);
                 }}
-                placeholder="Search records, customers, vehicles"
+                placeholder="Search tasks, records, customers or vehicles"
                 aria-label="Search"
                 className="ui-control h-11 rounded-full pr-9 pl-9"
               />
@@ -291,6 +295,31 @@ export function SearchOverlay({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+            {financeLinks.length > 0 && (
+              <section aria-label="Finance pages and tasks" className="py-2">
+                <h2 className="px-4 py-1 text-xs font-semibold uppercase text-slate-500">
+                  Finance pages and tasks
+                </h2>
+                <ul>
+                  {financeLinks.map((leaf) => (
+                    <ResultRow
+                      key={leaf.to}
+                      icon={FileText}
+                      onSelect={() =>
+                        open_({ id: leaf.to, href: leaf.to, title: leaf.label })
+                      }
+                    >
+                      <span className="block font-semibold">{leaf.label}</span>
+                      {leaf.subgroup && (
+                        <span className="text-sm text-slate-500">
+                          {leaf.subgroup}
+                        </span>
+                      )}
+                    </ResultRow>
+                  ))}
+                </ul>
+              </section>
+            )}
             {!searching ? (
               recent.length ? (
                 <section aria-label="Recent searches" className="py-2">
@@ -329,8 +358,8 @@ export function SearchOverlay({
                 </section>
               ) : (
                 <p className="px-4 py-10 text-center text-sm text-[var(--color-text-muted)]">
-                  Search by quotation or policy no., customer, phone,
-                  registration or chassis no.
+                  Search for a finance task, quotation or policy no., customer,
+                  phone, registration or chassis no.
                 </p>
               )
             ) : results.isFetching && !results.data ? (
@@ -371,7 +400,7 @@ export function SearchOverlay({
                   </ul>
                 </section>
               ))
-            ) : (
+            ) : financeLinks.length ? null : (
               <p
                 role="status"
                 className="px-4 py-10 text-center text-sm text-[var(--color-text-muted)]"

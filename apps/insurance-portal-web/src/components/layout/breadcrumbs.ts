@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { isNavLinkActive } from './sidebar-navigation';
 import { NAV_NODES, type NavLeaf } from './nav-config';
 
 // Routes that are not in the sidebar but still deserve a friendly trail.
@@ -21,7 +22,13 @@ const ROUTE_ENTRIES: RouteEntry[] = [
       ? [{ to: node.to, crumbs: [node.label] }]
       : node.children.map((leaf: NavLeaf) => ({
           to: leaf.to,
-          crumbs: [node.label, leaf.label],
+          crumbs: [
+            ...new Set(
+              [node.label, leaf.subgroup, leaf.label].filter(
+                (part): part is string => !!part,
+              ),
+            ),
+          ],
         })),
   ),
 ]
@@ -39,11 +46,13 @@ function describeRemainder(remainder: string): string | null {
 
 /** Breadcrumb trail for the current route, derived from the sidebar config. */
 export function useBreadcrumb(): string[] {
-  const { pathname } = useLocation();
-  const match = ROUTE_ENTRIES.find(
-    ({ to }) => pathname === to || pathname.startsWith(to + '/'),
+  const { pathname, search } = useLocation();
+  const match = ROUTE_ENTRIES.find(({ to }) =>
+    isNavLinkActive(pathname, search, to),
   );
   if (!match) return ['Dashboard'];
-  const extra = describeRemainder(pathname.slice(match.to.length));
+  const extra = describeRemainder(
+    pathname.slice(match.to.split('?')[0].length),
+  );
   return extra ? [...match.crumbs, extra] : match.crumbs;
 }

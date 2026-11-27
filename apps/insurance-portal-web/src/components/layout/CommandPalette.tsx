@@ -1,5 +1,6 @@
-import { useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { financeHref } from '@/modules/tenant/finance/finance-navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { LogOut, User, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,9 +16,9 @@ import {
 } from '@/components/ui/command';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { authApi } from '@/modules/shared/auth/api/auth';
-import { canAccessRoute } from '@/lib/auth/permissions';
 import {
   NAV_NODES,
+  canSeeNavLeaf,
   isNavGroupHidden,
   type NavLeaf,
   type NavGroup,
@@ -30,6 +31,7 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const { user, refreshToken, logout } = useAuthStore();
 
   const logoutMutation = useMutation({
@@ -41,16 +43,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     },
   });
 
-  function isLeafVisible(leaf: NavLeaf): boolean {
-    return canAccessRoute(user, {
-      requiredPermission: leaf.permission,
-      anyPermission: leaf.anyPermission,
-      anyPermissionGroups: leaf.anyPermissionGroups,
-      anyRole: leaf.anyRole,
-      allowedScopes: leaf.allowedScopes,
-      hideForStandardUser: leaf.hideForStandardUser,
-    });
-  }
+  const [query, setQuery] = useState('');
+  const isLeafVisible = (leaf: NavLeaf) => canSeeNavLeaf(user, leaf);
+  useEffect(() => {
+    if (!open) setQuery('');
+  }, [open]);
 
   function getVisibleLeaves(group: NavGroup): NavLeaf[] {
     if (isNavGroupHidden(group, user)) return [];
@@ -66,7 +63,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     } else {
       const visible = getVisibleLeaves(node);
       for (const leaf of visible) {
-        navItems.push({ group: node.label, leaf });
+        if (!leaf.directoryOnly || query.trim())
+          navItems.push({
+            group: leaf.subgroup
+              ? node.label + ' / ' + leaf.subgroup
+              : node.label,
+            leaf,
+          });
       }
     }
   }
@@ -102,7 +105,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search pages and actions…" />
+      <CommandInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search pages and actions…"
+      />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
@@ -111,7 +118,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             {leaves.map((leaf) => (
               <CommandItem
                 key={leaf.to}
-                onSelect={() => runAndClose(() => navigate(leaf.to))}
+                value={leaf.label + ' ' + leaf.to}
+                keywords={[groupLabel, ...(leaf.keywords ?? [])]}
+                onSelect={() =>
+                  runAndClose(() =>
+                    navigate(financeHref(leaf.to, pathname, search)),
+                  )
+                }
               >
                 <leaf.icon className="mr-2 h-4 w-4 text-slate-500" />
                 {leaf.label}

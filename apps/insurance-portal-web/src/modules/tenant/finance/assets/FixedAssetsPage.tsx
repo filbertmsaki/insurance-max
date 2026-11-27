@@ -1,3 +1,8 @@
+import { useFinanceView } from '../use-finance-view';
+import {
+  FinanceBookEmpty,
+  FinanceBookWorkspace,
+} from '../FinanceBookNavigation';
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -75,8 +80,6 @@ export function FixedAssetsPage() {
     enabled: active,
     queryFn: ({ signal }) => foundationReadApi.scopes(signal),
   });
-  const [id, set] = useState(''),
-    s = books.data?.find((b) => b.bookId === id) ?? books.data?.[0];
   return (
     <main className="space-y-5">
       <PageHeader
@@ -84,33 +87,24 @@ export function FixedAssetsPage() {
         description="Asset register, depreciation and lease accounting"
       />
       {books.error && <p role="alert">{getApiErrorMessage(books.error)}</p>}
-      {s && active ? (
-        <>
-          <Field
-            label="Accounting book"
-            value={s.bookId}
-            change={set}
-            options={books.data!.map((b) => ({
-              value: b.bookId,
-              label: b.entity_code + ' / ' + b.book_code,
-            }))}
-          />
-          <Workspace
-            key={identity + s.bookId}
-            scope={s}
-            identity={identity}
-            permissions={a.permissions}
-            user={user.id}
-            company={user.companyId!}
-          />
-        </>
-      ) : (
-        <p role="status">
-          {books.isLoading
-            ? 'Loading accounting books…'
-            : 'Select a company with an authorized finance book.'}
-        </p>
-      )}
+      {active && books.data?.length ? (
+        <FinanceBookWorkspace books={books.data}>
+          {(s) => (
+            <Workspace
+              key={identity + s.bookId}
+              scope={s}
+              identity={identity}
+              permissions={a.permissions}
+              user={user.id}
+              company={user.companyId!}
+            />
+          )}
+        </FinanceBookWorkspace>
+      ) : books.isLoading ? (
+        <p role="status">Loading accounting books…</p>
+      ) : active && !books.error ? (
+        <FinanceBookEmpty />
+      ) : null}
     </main>
   );
 }
@@ -135,10 +129,8 @@ function Workspace({
     queryFn: async ({ signal }) =>
       (await apiClient.get<Register>(url, { params: s, signal })).data,
   });
-  const [tab, T] = useState('Asset register'),
-    [code, C] = useState(''),
+  const [code, C] = useState(''),
     [search, S] = useState(''),
-    [form, F] = useState<Kind>('ACQUIRE'),
     [notice, N] = useState('');
   const refresh = () => qc.invalidateQueries({ queryKey: key });
   const mutation = useMutation({
@@ -156,6 +148,18 @@ function Workspace({
   const w = query.data,
     prepare = permissions.includes('finance-foundation:prepare'),
     review = permissions.includes('finance-foundation:review');
+  const tabs = [
+    'Asset register',
+    'Setup',
+    ...(prepare ? ['New document'] : []),
+    'Review and history',
+    'Depreciation',
+    'Class revaluation',
+    'Reports',
+    'GL approvals',
+  ];
+  const { view: tab, openView: T, action } = useFinanceView(tabs);
+  const form = Object.hasOwn(operations, action) ? (action as Kind) : 'ACQUIRE';
   if (!w)
     return (
       <p role={query.error ? 'alert' : 'status'}>
@@ -166,24 +170,15 @@ function Workspace({
     );
   const fmt = (n: string | number) => format(n, w.scale),
     asset = w.assets.find((a) => a.code === code);
-  const change = (tab: string) => {
-    T(tab);
+  const change = (tab: string, action?: Kind) => {
+    T(tab, action);
     N('');
     mutation.reset();
   };
   return (
     <section className="space-y-4">
       <nav aria-label="Fixed asset workspace" className="flex flex-wrap gap-2">
-        {[
-          'Asset register',
-          'Setup',
-          ...(prepare ? ['New document'] : []),
-          'Review and history',
-          'Depreciation',
-          'Class revaluation',
-          'Reports',
-          'GL approvals',
-        ].map((t) => (
+        {tabs.map((t) => (
           <Button
             key={t}
             variant={t === tab ? 'default' : 'outline'}
@@ -370,8 +365,7 @@ function Workspace({
                   variant="outline"
                   key={k}
                   onClick={() => {
-                    F(k);
-                    change('New document');
+                    change('New document', k);
                   }}
                 >
                   New {k.toLowerCase()}
@@ -411,6 +405,7 @@ function Workspace({
         <>
           <AssetForm
             initial={form}
+            onKindChange={(kind) => change('New document', kind)}
             scope={s}
             identity={identity}
             w={w}

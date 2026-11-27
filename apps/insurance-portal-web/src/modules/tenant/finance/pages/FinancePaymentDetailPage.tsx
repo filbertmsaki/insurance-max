@@ -36,6 +36,9 @@ export function FinancePaymentDetailPage() {
     query.data?.transaction_no && `Payment ${query.data.transaction_no}`,
   );
 
+  const canPost = useAuthStore((s) => s.hasPermission('receipts:post'));
+  const readReceipts = useAuthStore((s) => s.hasPermission('receipts:read'));
+  const readInvoices = useAuthStore((s) => s.hasPermission('invoices:read'));
   const canVerifyCash = useAuthStore((state) =>
     state.hasPermission('reconciliation:match'),
   );
@@ -119,7 +122,7 @@ export function FinancePaymentDetailPage() {
         />
       )}
 
-      {payment.status === 'SUCCESSFUL' && !payment.receipt_id && (
+      {canPost && payment.status === 'SUCCESSFUL' && !payment.receipt_id && (
         <DocumentDimensions
           kind="receipt"
           documentId={payment.id}
@@ -128,7 +131,7 @@ export function FinancePaymentDetailPage() {
         />
       )}
       <div className="flex flex-wrap gap-2">
-        {payment.status === 'SUCCESSFUL' && !payment.receipt_id ? (
+        {canPost && payment.status === 'SUCCESSFUL' && !payment.receipt_id ? (
           <Button
             onClick={() => postReceiptMutation.mutate()}
             disabled={postReceiptMutation.isPending}
@@ -136,7 +139,7 @@ export function FinancePaymentDetailPage() {
             {postReceiptMutation.isPending ? 'Posting...' : 'Post Receipt'}
           </Button>
         ) : null}
-        {payment.receipt_id ? (
+        {readReceipts && payment.receipt_id ? (
           <Button
             variant="outline"
             onClick={() =>
@@ -146,7 +149,7 @@ export function FinancePaymentDetailPage() {
             Open Receipt
           </Button>
         ) : null}
-        {payment.invoice_id ? (
+        {readInvoices && payment.invoice_id ? (
           <Button
             variant="outline"
             onClick={() =>

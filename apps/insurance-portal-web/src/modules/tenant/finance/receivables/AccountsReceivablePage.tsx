@@ -1,3 +1,8 @@
+import { useFinanceView } from '../use-finance-view';
+import {
+  FinanceBookEmpty,
+  FinanceBookWorkspace,
+} from '../FinanceBookNavigation';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,7 +14,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { foundationReadApi, type FoundationScope } from '../foundation/api';
 import { Field } from '../journals/GlFields';
 import { OperatingPostings } from '../setup/OperatingPostings';
-import { downloadCsv } from '../payables/ap-export';
+import { amountLabel, downloadCsv } from '../payables/ap-export';
 import { ApEvidenceUpload } from '../payables/ApEvidenceUpload';
 import { CashForm, DocumentForm } from './customer-account-forms';
 import { ReceivableAgingChart } from './ReceivableAgingChart';
@@ -78,8 +83,6 @@ export function AccountsReceivablePage() {
     enabled: ready,
     queryFn: ({ signal }) => foundationReadApi.scopes(signal),
   });
-  const [id, set] = useState('');
-  const s = books.data?.find((b) => b.bookId === id) ?? books.data?.[0];
   return (
     <main className="space-y-5">
       <PageHeader
@@ -87,33 +90,24 @@ export function AccountsReceivablePage() {
         description="Customer balances, collections and adjustments"
       />
       {books.error && <p role="alert">{getApiErrorMessage(books.error)}</p>}
-      {s && ready ? (
-        <>
-          <Field
-            label="Accounting book"
-            value={s.bookId}
-            change={set}
-            options={books.data!.map((b) => ({
-              value: b.bookId,
-              label: b.entity_code + ' / ' + b.book_code,
-            }))}
-          />
-          <Workspace
-            key={identity + s.bookId}
-            scope={s}
-            identity={identity}
-            permissions={a!.permissions}
-            user={user!.id}
-            company={user!.companyId!}
-          />
-        </>
-      ) : (
-        <p role="status">
-          {books.isLoading
-            ? 'Loading accounting books…'
-            : 'Select a company with an authorized finance book.'}
-        </p>
-      )}
+      {ready && books.data?.length ? (
+        <FinanceBookWorkspace books={books.data}>
+          {(s) => (
+            <Workspace
+              key={identity + s.bookId}
+              scope={s}
+              identity={identity}
+              permissions={a!.permissions}
+              user={user!.id}
+              company={user!.companyId!}
+            />
+          )}
+        </FinanceBookWorkspace>
+      ) : books.isLoading ? (
+        <p role="status">Loading accounting books…</p>
+      ) : ready && !books.error ? (
+        <FinanceBookEmpty />
+      ) : null}
     </main>
   );
 }
@@ -139,8 +133,7 @@ function Workspace({
       (await apiClient.get<Register>(endpoint, { params: selection, signal }))
         .data,
   });
-  const [tab, T] = useState('Customer balances'),
-    [reason, N] = useState(''),
+  const [reason, N] = useState(''),
     [selected, S] = useState(''),
     [obs, O] = useState<Record<string, string>>({});
   const [msg, M] = useState('');
@@ -174,6 +167,18 @@ function Workspace({
   const w = reg.data,
     canPrepare = permissions.includes('finance-foundation:prepare'),
     canReview = permissions.includes('finance-foundation:review');
+  const tabs = [
+    'Customer balances',
+    'Credit profiles',
+    'Documents',
+    ...(canPrepare ? ['New document'] : []),
+    'Receipts and refunds',
+    'Collections',
+    'Statements and aging',
+    'GL approvals',
+  ];
+  const { view: tab, openView: T, action: formAction } = useFinanceView(tabs);
+  const formKind = Object.hasOwn(names, formAction) ? formAction : 'CATEGORY';
   if (!w)
     return (
       <p role={reg.error ? 'alert' : 'status'}>
@@ -186,16 +191,7 @@ function Workspace({
     busy = mutation.isPending;
   const customer = (id: string) =>
     w.customers.find((c) => c.id === id)?.label ?? '';
-  const tabs = [
-    'Customer balances',
-    'Credit profiles',
-    'Documents',
-    ...(canPrepare ? ['New document'] : []),
-    'Receipts and refunds',
-    'Collections',
-    'Statements and aging',
-    'GL approvals',
-  ];
+
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap gap-2">
@@ -236,11 +232,18 @@ function Workspace({
                 in {ccy}.
               </p>
             ))}
-          <div className="flex gap-4">
-            <Link to="/apps/finance/invoices">
-              Customer invoices and premium billing
-            </Link>
-            <Link to="/apps/finance/receipts">Receipt vouchers</Link>
+          <div className="flex flex-wrap gap-4 text-primary underline">
+            {permissions.includes('invoices:read') && (
+              <Link to="/apps/finance/invoices">
+                Customer invoices and premium billing
+              </Link>
+            )}
+            {permissions.includes('invoices:create-manual') && (
+              <Link to="/apps/finance/invoices/new">New manual invoice</Link>
+            )}
+            {permissions.includes('receipts:read') && (
+              <Link to="/apps/finance/receipts">Receipt vouchers</Link>
+            )}
           </div>
           <Table
             head={[
@@ -257,15 +260,24 @@ function Workspace({
               'Status',
             ]}
             rows={w.invoices.map((i) => [
-              <Link to={'/apps/finance/invoices/' + i.id}>{i.label}</Link>,
+              permissions.includes('invoices:read') ? (
+                <Link
+                  className="text-primary underline"
+                  to={'/apps/finance/invoices/' + i.id}
+                >
+                  {i.label}
+                </Link>
+              ) : (
+                i.label
+              ),
               customer(i.customer_id),
               i.invoice_type,
               i.due_date,
               i.currency,
-              i.total_amount,
-              i.paid_amount,
+              amountLabel(i.total_amount),
+              amountLabel(i.paid_amount),
               collectionPercent(i.paid_amount, i.total_amount),
-              i.balance_amount,
+              amountLabel(i.balance_amount),
               collectionPercent(i.balance_amount, i.total_amount),
               label(i.status),
             ])}
@@ -302,7 +314,13 @@ function Workspace({
             permissions.includes('documents:upload')) && (
             <ApEvidenceUpload companyId={company} refresh={refresh} />
           )}
-          <DocumentForm w={w} send={send} busy={busy} />
+          <DocumentForm
+            initialKind={formKind}
+            onKindChange={(kind) => T('New document', kind)}
+            w={w}
+            send={send}
+            busy={busy}
+          />
         </>
       )}
       {tab === 'Documents' && (
@@ -537,12 +555,21 @@ function Workspace({
                   Number(r.unallocated_amount) > 0 || Number(r.available) < 0,
               )
               .map((r) => [
-                <Link to={'/apps/finance/receipts/' + r.id}>{r.label}</Link>,
+                permissions.includes('receipts:read') ? (
+                  <Link
+                    className="text-primary underline"
+                    to={'/apps/finance/receipts/' + r.id}
+                  >
+                    {r.label}
+                  </Link>
+                ) : (
+                  r.label
+                ),
                 customer(r.customer_id),
                 r.currency,
-                r.amount,
-                r.unallocated_amount,
-                r.available,
+                amountLabel(r.amount),
+                amountLabel(r.unallocated_amount),
+                amountLabel(r.available),
               ])}
           />
           {(permissions.includes('receipts:allocate') ||
@@ -563,7 +590,7 @@ function Workspace({
                 rows={w.cashExceptions.map((r) => [
                   r.receipt_no,
                   r.invoice_id,
-                  r.available,
+                  amountLabel(r.available),
                 ])}
               />
             </>
@@ -572,10 +599,19 @@ function Workspace({
           <Table
             head={['Refund', 'Customer', 'Currency', 'Amount', 'Status']}
             rows={w.refunds.map((r) => [
-              <Link to={'/apps/finance/refunds/' + r.id}>{r.refund_no}</Link>,
+              permissions.includes('refunds:read') ? (
+                <Link
+                  className="text-primary underline"
+                  to={'/apps/finance/refunds/' + r.id}
+                >
+                  {r.refund_no}
+                </Link>
+              ) : (
+                r.refund_no
+              ),
               customer(r.customer_id),
               r.currency_code,
-              r.amount,
+              amountLabel(r.amount),
               r.status,
             ])}
           />

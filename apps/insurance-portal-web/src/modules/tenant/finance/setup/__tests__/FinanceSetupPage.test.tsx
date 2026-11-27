@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import {
   act,
   fireEvent,
@@ -60,9 +61,7 @@ const stepButton = (index: number) => {
       within(nav).getByRole('button', { name: new RegExp(stage) }),
     );
     button = within(nav).getByRole('button', {
-      name: new RegExp(
-        '^' + index + '\\. Synthetic step ' + index,
-      ),
+      name: new RegExp('^' + index + '\\. Synthetic step ' + index),
     });
   }
   return button;
@@ -70,9 +69,11 @@ const stepButton = (index: number) => {
 let client: QueryClient;
 const mount = () =>
   render(
-    <QueryClientProvider client={client}>
-      <FinanceSetupPage />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <FinanceSetupPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 beforeEach(() => {
   vi.resetAllMocks();

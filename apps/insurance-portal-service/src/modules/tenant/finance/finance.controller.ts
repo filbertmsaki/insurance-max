@@ -16,6 +16,7 @@ import { DataAccessScopeService } from '../../shared/authorization/data-access-s
 
 import { FinancePermissions } from './governance/finance-permissions/finance.permissions';
 import { BillingCommissionService } from './receivables/billing/billing-commission.service';
+import { ManualInvoiceOptionsService } from './receivables/invoices/manual-invoice-options.service';
 import { CreateInvoiceDto } from './receivables/invoices/dto/create-invoice.dto';
 import { FinanceDashboardService } from './receivables/billing/finance-dashboard.service';
 import {
@@ -60,6 +61,7 @@ export class FinanceController {
     private readonly paymentReferenceService: PaymentReferenceService,
     private readonly financeDashboardService: FinanceDashboardService,
     private readonly dataAccessScope: DataAccessScopeService,
+    private readonly invoiceOptions: ManualInvoiceOptionsService,
   ) {}
 
   @Get('dashboard/summary')
@@ -112,6 +114,21 @@ export class FinanceController {
   @Permissions(FinancePermissions.RECEIPTS_POST)
   receiptDimensions(@CurrentUser() user: AuthenticatedUser) {
     return this.financeCommandService.documentDimensions(user.companyId!);
+  }
+
+  @Get('manual-invoice/options')
+  @Permissions(FinancePermissions.INVOICES_CREATE_MANUAL)
+  manualInvoiceOptions(@CurrentUser() user: AuthenticatedUser) {
+    return this.invoiceOptions.options(user.companyId!);
+  }
+
+  @Get('manual-invoice/customers')
+  @Permissions(FinancePermissions.INVOICES_CREATE_MANUAL)
+  manualInvoiceCustomers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('search') search: string,
+  ) {
+    return this.invoiceOptions.customers(user, search);
   }
 
   @Post('invoices')

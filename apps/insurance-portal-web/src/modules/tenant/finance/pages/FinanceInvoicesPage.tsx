@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { InvoiceStatus } from '@insurance-max/contracts';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   DataTable,
@@ -14,16 +16,17 @@ import { FinanceStatusBadge, formatMoney, partyName } from '../components';
 const FILTER_KEYS = ['status'] as const;
 
 const STATUS_OPTIONS = [
-  'DRAFT',
-  'ISSUED',
-  'PARTIALLY_PAID',
-  'PAID',
+  ...Object.values(InvoiceStatus),
   'VOID',
   'REVERSED',
 ].map((value) => ({ label: value.replace(/_/g, ' '), value }));
 
 export function FinanceInvoicesPage() {
   const navigate = useNavigate();
+  const canCreate = useAuthStore(
+    (s) =>
+      s.user?.scope === 'company' && s.hasPermission('invoices:create-manual'),
+  );
   const { tableProps, state } = useServerTable<
     FinanceInvoice,
     (typeof FILTER_KEYS)[number]
@@ -92,6 +95,13 @@ export function FinanceInvoicesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Invoices"
+        action={
+          canCreate && (
+            <Button asChild>
+              <Link to="/apps/finance/invoices/new">New manual invoice</Link>
+            </Button>
+          )
+        }
         description="Authoritative invoice balances come from posted receipts, allocations, refunds, and write-offs."
       />
       <DataTable

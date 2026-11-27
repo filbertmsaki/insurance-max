@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   DataTable,
@@ -23,6 +24,9 @@ const STATUS_OPTIONS = [
 
 export function FinanceReceiptsPage() {
   const navigate = useNavigate();
+  const canPost = useAuthStore(
+    (s) => s.hasPermission('payments:read') && s.hasPermission('receipts:post'),
+  );
   const { tableProps, state } = useServerTable<
     FinanceReceipt,
     (typeof FILTER_KEYS)[number]
@@ -83,6 +87,15 @@ export function FinanceReceiptsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Receipts"
+        action={
+          canPost && (
+            <Button asChild>
+              <Link to="/apps/finance/payments">
+                Select payment to post a receipt
+              </Link>
+            </Button>
+          )
+        }
         description="Posted receipts are immutable; corrections use reversals and new postings."
       />
       <DataTable

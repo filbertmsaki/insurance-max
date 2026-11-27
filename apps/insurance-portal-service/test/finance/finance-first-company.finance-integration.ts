@@ -111,6 +111,15 @@ describe('FIN-01 first company through first live journals', () => {
           await expect(
             db.query('SELECT finance_fin01_primary($1)', [company]),
           ).rejects.toMatchObject({ code: 'P0101' });
+          expect(await call(maker, 'manual-invoice/options')).toEqual({
+            ready: false,
+          });
+          await call(
+            deputy,
+            'manual-invoice/customers?search=C1',
+            undefined,
+            403,
+          );
           const held = await call(maker, 'invoices', feeInput, 409);
           expect(held.error.code).toBe('FINANCE_SETUP_REQUIRED');
           expect(
@@ -1069,6 +1078,19 @@ describe('FIN-01 first company through first live journals', () => {
                 '-0001$',
             ),
           );
+          const manualOptions = await call(maker, 'manual-invoice/options');
+          expect(manualOptions).toMatchObject({
+            ready: true,
+            currency: 'TZS',
+            scales: { TZS: expect.any(Number) },
+          });
+          expect(manualOptions.terms.length).toBeGreaterThan(0);
+          expect(
+            await call(maker, 'manual-invoice/customers?search=C1'),
+          ).toEqual([{ id: customer, code: 'C1', label: 'Customer One' }]);
+          expect(
+            await call(maker, 'manual-invoice/customers?search=%25%25'),
+          ).toEqual([]);
           const draft = await call(maker, 'invoices', feeInput);
           await expect(
             db.query('UPDATE invoices SET gross_amount=99.999 WHERE id=$1', [

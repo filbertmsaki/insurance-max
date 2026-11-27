@@ -1,3 +1,11 @@
+import {
+  UnderwriteAction,
+  underwritePermission,
+  underwriteLineFromQuotationFlow,
+} from '@insurance-max/contracts';
+import { MOTOR_INSURANCE_QUOTATIONS_GATE } from '@/modules/tenant/motor-insurance/access';
+import { underwritePaths } from '@/modules/tenant/underwrite/paths';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -59,6 +67,12 @@ export function FinanceInvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const permissions = useAuthStore(
+    (s) => s.authorizationContext?.permissions ?? s.user?.permissions,
+  );
+  const can = (name: string) => permissions?.includes(name);
+  const record = can('payments:record-manual');
+  const postReceipt = record && can('receipts:post');
   const [paymentMethod, setPaymentMethod] = useState('CONTROL_NUMBER');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
@@ -76,7 +90,7 @@ export function FinanceInvoiceDetailPage() {
   const referencesQuery = useQuery({
     queryKey: ['finance', 'invoice', id, 'payment-references'],
     queryFn: () => financeApi.getPaymentReferences(id!),
-    enabled: !!id,
+    enabled: !!id && can('payments:read'),
   });
 
   const refresh = () => {
@@ -201,6 +215,16 @@ export function FinanceInvoiceDetailPage() {
   }
 
   const currency = invoice.currency ?? invoice.currency_code ?? 'TZS';
+  const nonMotor =
+    underwriteLineFromQuotationFlow(invoice.quotation?.quotation_flow) ===
+    'NON_MOTOR';
+  const canOpenQuote =
+    can('quotations:read') &&
+    (nonMotor
+      ? can(underwritePermission('NON_MOTOR', UnderwriteAction.VIEW))
+      : MOTOR_INSURANCE_QUOTATIONS_GATE.anyPermissionGroups.every((group) =>
+          group.some(can),
+        ));
   const references = referencesQuery.data ?? [];
   const activeReference = references.find(
     (reference) =>
@@ -267,7 +291,7 @@ export function FinanceInvoiceDetailPage() {
         </Card>
       </div>
 
-      {invoice.status === 'DRAFT' && (
+      {can('invoices:issue') && invoice.status === 'DRAFT' && (
         <DocumentDimensions
           kind="invoice"
           documentId={invoice.id}
@@ -304,7 +328,7 @@ export function FinanceInvoiceDetailPage() {
             filePrefix="Invoice"
           />
         )}
-        {invoice.status === 'DRAFT' ? (
+        {can('invoices:issue') && invoice.status === 'DRAFT' ? (
           <Button
             onClick={() => issueMutation.mutate()}
             disabled={
@@ -319,6 +343,7 @@ export function FinanceInvoiceDetailPage() {
           </Button>
         ) : null}
         {invoice.source_type !== 'AR_OPENING' &&
+        can('invoices:void') &&
         ['DRAFT', 'ISSUED'].includes(invoice.status) ? (
           <Button
             variant="outline"
@@ -328,10 +353,13 @@ export function FinanceInvoiceDetailPage() {
             Void Invoice
           </Button>
         ) : null}
-        {invoice.quotation_id ? (
+        {canOpenQuote && invoice.quotation_id ? (
           <Button variant="outline" asChild>
             <Link
-              to={`/apps/underwrite/motor/quotations/${invoice.quotation_id}`}
+              to={underwritePaths.quotationDetail(
+                nonMotor ? 'non-motor' : 'motor',
+                invoice.quotation_id,
+              )}
             >
               Open Quotation Payment
             </Link>
@@ -377,92 +405,101 @@ export function FinanceInvoiceDetailPage() {
         </CardContent>
       </Card>
 
-      {['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) ? (
+      {(record || can('payments:read')) &&
+      ['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) ? (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Billing and Payment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-slate-500">
-              Generate a payment reference for the channel, then record the
-              received payment and allocate it through finance commands.
-            </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="payment-method">Payment method</Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(value) => {
-                    setPaymentMethod(value);
-                    const existing = references.find(
-                      (reference) =>
-                        reference.method === value &&
-                        ['ACTIVE', 'PENDING'].includes(reference.status),
-                    );
-                    setPaymentReference(referenceValue(existing));
-                  }}
-                >
-                  <SelectTrigger id="payment-method">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method.value} value={method.value}>
-                        {method.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="payment-amount">Amount</Label>
-                <Input
-                  id="payment-amount"
-                  type="number"
-                  value={paymentAmount}
-                  onChange={(event) => setPaymentAmount(event.target.value)}
-                  placeholder={invoice.balance_amount}
-                />
-              </div>
-              <div>
-                <Label htmlFor="payment-reference">Reference</Label>
-                <Input
-                  id="payment-reference"
-                  value={paymentReference}
-                  onChange={(event) => setPaymentReference(event.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="payer-name">Payer name</Label>
-                <Input
-                  id="payer-name"
-                  value={payerName}
-                  onChange={(event) => setPayerName(event.target.value)}
-                  placeholder={partyName(invoice.customer)}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => createReferenceMutation.mutate()}
-                disabled={createReferenceMutation.isPending}
-              >
-                {createReferenceMutation.isPending
-                  ? 'Generating...'
-                  : activeReference
-                    ? 'Use Existing Reference'
-                    : 'Generate Reference'}
-              </Button>
-              <Button
-                onClick={() => recordPaymentMutation.mutate()}
-                disabled={recordPaymentMutation.isPending}
-              >
-                {recordPaymentMutation.isPending
-                  ? 'Posting...'
-                  : 'Record and Allocate Payment'}
-              </Button>
-            </div>
+            {record && (
+              <>
+                <p className="text-sm text-slate-500">
+                  Generate a payment reference for the channel, then record the
+                  received payment and allocate it through finance commands.
+                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="payment-method">Payment method</Label>
+                    <Select
+                      value={paymentMethod}
+                      onValueChange={(value) => {
+                        setPaymentMethod(value);
+                        const existing = references.find(
+                          (reference) =>
+                            reference.method === value &&
+                            ['ACTIVE', 'PENDING'].includes(reference.status),
+                        );
+                        setPaymentReference(referenceValue(existing));
+                      }}
+                    >
+                      <SelectTrigger id="payment-method">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentMethods.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="payment-amount">Amount</Label>
+                    <Input
+                      id="payment-amount"
+                      type="number"
+                      value={paymentAmount}
+                      onChange={(event) => setPaymentAmount(event.target.value)}
+                      placeholder={invoice.balance_amount}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="payment-reference">Reference</Label>
+                    <Input
+                      id="payment-reference"
+                      value={paymentReference}
+                      onChange={(event) =>
+                        setPaymentReference(event.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="payer-name">Payer name</Label>
+                    <Input
+                      id="payer-name"
+                      value={payerName}
+                      onChange={(event) => setPayerName(event.target.value)}
+                      placeholder={partyName(invoice.customer)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => createReferenceMutation.mutate()}
+                    disabled={createReferenceMutation.isPending}
+                  >
+                    {createReferenceMutation.isPending
+                      ? 'Generating...'
+                      : activeReference
+                        ? 'Use Existing Reference'
+                        : 'Generate Reference'}
+                  </Button>
+                  {postReceipt && (
+                    <Button
+                      onClick={() => recordPaymentMutation.mutate()}
+                      disabled={recordPaymentMutation.isPending}
+                    >
+                      {recordPaymentMutation.isPending
+                        ? 'Posting...'
+                        : 'Record and Allocate Payment'}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="space-y-3">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">

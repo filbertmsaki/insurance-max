@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import {
   act,
   fireEvent,
@@ -37,9 +38,11 @@ const api = vi.mocked(foundationReadApi);
 let client: QueryClient;
 function mount() {
   return render(
-    <QueryClientProvider client={client}>
-      <FinanceFoundationPage />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <FinanceFoundationPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 function deferred<T>() {

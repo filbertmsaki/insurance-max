@@ -12,7 +12,7 @@ import { MOBILE_DRAWER_ID, MobileAppBar } from './app-bar/MobileAppBar';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { engagementApi } from '@/modules/tenant/engagement/api';
 import { useBreadcrumb } from './breadcrumbs';
-import { cn } from '@/lib/utils';
+import * as Dialog from '@radix-ui/react-dialog';
 import { APP_NAME } from '@/modules/shared/config';
 
 export function AppShell() {
@@ -65,21 +65,12 @@ export function AppShell() {
     mainRef.current?.scrollTo?.({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
 
-  // Phone drawer: Escape closes it.
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [mobileOpen]);
   const swipeStart = useRef<number | null>(null);
 
   // Close mobile sidebar on route change
-  const [prevPathname, setPrevPathname] = useState(location.pathname);
-  if (location.pathname !== prevPathname) {
-    setPrevPathname(location.pathname);
+  const [prevLocation, setPrevLocation] = useState(location.key);
+  if (location.key !== prevLocation) {
+    setPrevLocation(location.key);
     setMobileOpen(false);
     setScrolled(false);
   }
@@ -111,46 +102,52 @@ export function AppShell() {
               />
             </div>
 
-            {/* ── Mobile overlay ── */}
-            <div
-              className={cn(
-                'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300',
-                mobileOpen
-                  ? 'opacity-100 pointer-events-auto'
-                  : 'opacity-0 pointer-events-none',
-              )}
-              onClick={() => setMobileOpen(false)}
-              aria-hidden
-            />
-
-            {/* ── Mobile sidebar drawer ── */}
-            <div
-              id={MOBILE_DRAWER_ID}
-              role="dialog"
-              aria-modal={mobileOpen || undefined}
-              aria-label="Navigation"
-              aria-hidden={!mobileOpen}
-              inert={!mobileOpen}
-              className={cn(
-                'fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] md:hidden transition-transform duration-300 ease-in-out [&>*]:w-full',
-                mobileOpen ? 'translate-x-0' : '-translate-x-full',
-              )}
-              onTouchStart={(event) => {
-                swipeStart.current = event.touches[0].clientX;
-              }}
-              onTouchEnd={(event) => {
-                const start = swipeStart.current;
-                swipeStart.current = null;
-                if (
-                  start !== null &&
-                  start - event.changedTouches[0].clientX > 60
-                ) {
-                  setMobileOpen(false);
-                }
-              }}
-            >
-              <Sidebar mobile onClose={() => setMobileOpen(false)} />
-            </div>
+            <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/60 md:hidden" />
+                <Dialog.Content
+                  id={MOBILE_DRAWER_ID}
+                  aria-describedby={undefined}
+                  className="fixed inset-y-0 left-0 z-[71] w-[85vw] max-w-[320px] md:hidden [&>aside]:w-full"
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        'button[aria-controls="' + MOBILE_DRAWER_ID + '"]',
+                      )
+                      ?.focus();
+                  }}
+                  onClick={(event) => {
+                    if (
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.shiftKey &&
+                      event.target instanceof Element &&
+                      event.target.closest('a[href]')
+                    )
+                      setMobileOpen(false);
+                  }}
+                  onTouchStart={(event) => {
+                    swipeStart.current = event.touches[0].clientX;
+                  }}
+                  onTouchEnd={(event) => {
+                    const start = swipeStart.current;
+                    swipeStart.current = null;
+                    if (
+                      start !== null &&
+                      start - event.changedTouches[0].clientX > 60
+                    ) {
+                      setMobileOpen(false);
+                    }
+                  }}
+                >
+                  <Dialog.Title className="sr-only">
+                    Main navigation
+                  </Dialog.Title>
+                  <Sidebar mobile onClose={() => setMobileOpen(false)} />
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
 
             {/* ── Main content area ── */}
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

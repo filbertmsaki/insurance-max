@@ -25,6 +25,8 @@ interface Props {
   registry: Register;
   save: (input: ReturnType<typeof makeInput>) => Promise<void>;
   employee?: string;
+  initialKind?: string;
+  onKindChange?: (kind: string) => void;
 }
 const flags = ['matchOrder', 'disabled', 'takeDiscount'];
 const ints = [
@@ -36,7 +38,37 @@ const ints = [
   'withholdingBps',
 ];
 
-export function ApForm({ w, registry, save, employee }: Props) {
+const documentGroups = {
+  'Supplier setup': ['SETTINGS', 'CATEGORY', 'SUPPLIER', 'BANK'],
+  'Purchases and adjustments': [
+    'ORDER',
+    'RECEIPT',
+    'BILL',
+    'CREDIT',
+    'CREDIT_APPLICATION',
+    'SUPPLIER_REFUND',
+    'DEBIT',
+    'OPENING_IMPORT',
+  ],
+  'Staff expenses': ['EXPENSE', 'IMPREST', 'RETIREMENT'],
+  'Payments and reconciliation': [
+    'ADVANCE',
+    'APPLICATION',
+    'PAYMENT',
+    'BATCH',
+    'RECONCILIATION',
+    'REVERSAL',
+  ],
+};
+
+export function ApForm({
+  w,
+  registry,
+  save,
+  employee,
+  initialKind,
+  onKindChange,
+}: Props) {
   const allowed = employee
     ? ['EXPENSE', 'IMPREST', 'RETIREMENT', 'BANK']
     : Object.keys(names);
@@ -44,8 +76,11 @@ export function ApForm({ w, registry, save, employee }: Props) {
     ...blank(k, w.functionalCurrency),
     employeeId: employee ?? '',
   });
-  const [v, set] = useState<Draft>(() => initial(allowed[0])),
+  const selectedKind =
+    initialKind && allowed.includes(initialKind) ? initialKind : allowed[0];
+  const [v, set] = useState<Draft>(() => initial(selectedKind)),
     [busy, working] = useState(false);
+  if (onKindChange && v.kind !== selectedKind) set(initial(selectedKind));
   const change = <K extends keyof Draft>(key: K, val: Draft[K]) =>
     set((s) => ({ ...s, [key]: val }));
   const detail = (key: string, val: unknown) =>
@@ -333,9 +368,10 @@ export function ApForm({ w, registry, save, employee }: Props) {
       <div className="grid gap-3 md:grid-cols-3">
         <Field
           label="Document type"
+          optionGroups={employee ? undefined : documentGroups}
           value={kind}
           options={allowed.map((k) => ({ value: k, label: names[k] }))}
-          change={(k) => set(initial(k))}
+          change={onKindChange ?? ((kind) => set(initial(kind)))}
         />
         {master && (
           <Field

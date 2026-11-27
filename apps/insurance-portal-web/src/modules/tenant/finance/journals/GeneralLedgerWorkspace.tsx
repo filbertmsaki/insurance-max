@@ -1,3 +1,9 @@
+import { Link } from 'react-router-dom';
+import { useFinanceView } from '../use-finance-view';
+import {
+  FinanceBookEmpty,
+  FinanceBookWorkspace,
+} from '../FinanceBookNavigation';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,36 +48,27 @@ export function GeneralLedgerWorkspace() {
     queryFn: ({ signal }) => foundationReadApi.scopes(signal),
     enabled: ready,
   });
-  const [id, select] = useState('');
   if (!ready) return null;
   if (scopes.isError)
     return <p role="alert">The accounting books could not be loaded.</p>;
   if (!scopes.data?.length)
-    return (
-      <p role="status">
-        {scopes.isLoading
-          ? 'Loading books…'
-          : 'No accounting book is available for this company.'}
-      </p>
+    return scopes.isLoading ? (
+      <p role="status">Loading books…</p>
+    ) : (
+      <FinanceBookEmpty />
     );
-  const s = scopes.data.find((b) => b.bookId === id) ?? scopes.data[0];
   return (
     <section className="space-y-4">
-      <Field
-        label="Accounting book"
-        value={s.bookId}
-        options={scopes.data.map((b) => ({
-          value: b.bookId,
-          label: b.entity_code + ' / ' + b.book_code,
-        }))}
-        change={select}
-      />
-      <BookWorkspace
-        key={identity + s.bookId}
-        scope={s}
-        identity={identity}
-        perms={c!.permissions}
-      />
+      <FinanceBookWorkspace books={scopes.data}>
+        {(s) => (
+          <BookWorkspace
+            key={identity + s.bookId}
+            scope={s}
+            identity={identity}
+            perms={c!.permissions}
+          />
+        )}
+      </FinanceBookWorkspace>
     </section>
   );
 }
@@ -100,8 +97,7 @@ function BookWorkspace({
         })
       ).data,
   });
-  const [tab, Tab] = useState('Vouchers'),
-    [value, V] = useState<Voucher | null>(null),
+  const [value, V] = useState<Voucher | null>(null),
     [draft, Draft] = useState<{ id: string; revision: number } | undefined>(),
     [notice, N] = useState('');
   const [invoice, I] = useState(''),
@@ -158,6 +154,20 @@ function BookWorkspace({
     N('');
     update.mutate({ path, body });
   };
+  const canPrepare = perms.includes('finance-foundation:prepare');
+  const tabs = [
+    'Vouchers',
+    'Approvals',
+    'Programs',
+    ...(w.data?.insuranceMeasurements ? ['Insurance measurement'] : []),
+    'Corrections',
+    'Ledger activity',
+    'Book rollout',
+    ...(perms.includes('invoices:write-off') && canPrepare
+      ? ['Write-offs']
+      : []),
+  ];
+  const { view: tab, openView: Tab } = useFinanceView(tabs);
   if (!w.data)
     return (
       <p role={w.isError ? 'alert' : 'status'}>
@@ -165,7 +175,6 @@ function BookWorkspace({
       </p>
     );
   const data = w.data,
-    canPrepare = perms.includes('finance-foundation:prepare'),
     canReview = perms.includes('finance-foundation:review'),
     v = value ?? emptyVoucher(data.functionalCurrency);
   const set = (fields: Partial<Voucher>) => V({ ...v, ...fields });
@@ -191,18 +200,7 @@ function BookWorkspace({
   return (
     <div className="space-y-4 rounded border p-4">
       <nav aria-label="General ledger" className="flex flex-wrap gap-2">
-        {[
-          'Vouchers',
-          'Approvals',
-          'Programs',
-          ...(data.insuranceMeasurements ? ['Insurance measurement'] : []),
-          'Corrections',
-          'Ledger activity',
-          'Book rollout',
-          ...(perms.includes('invoices:write-off') && canPrepare
-            ? ['Write-offs']
-            : []),
-        ].map((t) => (
+        {tabs.map((t) => (
           <Button
             key={t}
             variant={tab === t ? 'default' : 'outline'}
@@ -472,9 +470,15 @@ function BookWorkspace({
               ))}
             </tbody>
           </table>
-          <a className="underline" href="/apps/finance/foundation">
+          <Link
+            className="underline"
+            to={
+              '/apps/finance/trial-balance?book=' +
+              encodeURIComponent(scope.bookId)
+            }
+          >
             Account inquiry and certified trial balance
-          </a>
+          </Link>
         </>
       )}
       {tab === 'Write-offs' && (

@@ -1,3 +1,8 @@
+import { useFinanceView } from '../use-finance-view';
+import {
+  FinanceBookEmpty,
+  FinanceBookWorkspace,
+} from '../FinanceBookNavigation';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -128,8 +133,6 @@ export function AccountsPayablePage({
     enabled: ready && !employee,
     queryFn: ({ signal }) => foundationReadApi.scopes(signal),
   });
-  const [id, set] = useState('');
-  const s = books.data?.find((b) => b.bookId === id) ?? books.data?.[0];
   return (
     <main className="space-y-5">
       <PageHeader
@@ -149,30 +152,21 @@ export function AccountsPayablePage({
           />
         ) : books.isError ? (
           <p role="alert">{getApiErrorMessage(books.error)}</p>
-        ) : s ? (
-          <>
-            <Field
-              label="Accounting book"
-              value={s.bookId}
-              options={books.data!.map((b) => ({
-                value: b.bookId,
-                label: b.entity_code + ' / ' + b.book_code,
-              }))}
-              change={set}
-            />
-            <Work
-              key={identity + s.bookId}
-              identity={identity}
-              scope={s}
-              permissions={a!.permissions}
-            />
-          </>
+        ) : books.data?.length ? (
+          <FinanceBookWorkspace books={books.data}>
+            {(s) => (
+              <Work
+                key={identity + s.bookId}
+                identity={identity}
+                scope={s}
+                permissions={a!.permissions}
+              />
+            )}
+          </FinanceBookWorkspace>
+        ) : books.isLoading ? (
+          <p role="status">Loading books…</p>
         ) : (
-          <p role="status">
-            {books.isLoading
-              ? 'Loading books…'
-              : 'No accounting book available.'}
-          </p>
+          <FinanceBookEmpty />
         ))}
     </main>
   );
@@ -216,8 +210,7 @@ function Work({
         })
       ).data,
   });
-  const [tab, T] = useState('Register'),
-    [chosen, C] = useState(''),
+  const [chosen, C] = useState(''),
     [filter, F] = useState(''),
     [kind, K] = useState(''),
     [reason, R] = useState(''),
@@ -265,6 +258,11 @@ function Work({
   const available = employee
     ? modes.slice(0, 2)
     : modes.filter((t) => t !== 'New document' || canPrepare);
+  const {
+    view: tab,
+    openView: T,
+    action: formKind,
+  } = useFinanceView(available);
   async function action(
     suffix: string,
     body: Record<string, unknown> = {},
@@ -364,6 +362,8 @@ function Work({
       {tab === 'New document' && (
         <ApForm
           key={employee ?? scope!.bookId}
+          initialKind={formKind}
+          onKindChange={(kind) => T('New document', kind)}
           registry={reg.data}
           w={w}
           employee={employee}

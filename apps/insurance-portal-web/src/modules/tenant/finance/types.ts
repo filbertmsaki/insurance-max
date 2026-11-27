@@ -70,7 +70,7 @@ export interface FinanceInvoice {
   void_reason?: string | null;
   source_snapshot?: Record<string, unknown> | null;
   customer?: FinancePartySummary | null;
-  quotation?: FinancePartySummary | null;
+  quotation?: (FinancePartySummary & { quotation_flow?: string | null }) | null;
   policy?: FinancePartySummary | null;
   items?: FinanceInvoiceItem[];
   created_at?: string;

@@ -22,16 +22,41 @@ const accounts: Record<string, string> = {
   premiumCash: 'Insurer premium cash control',
 };
 
+const documentGroups = {
+  'Customer setup': ['CATEGORY', 'PROFILE', 'PAYER_MANDATE', 'POLICY'],
+  'Notes and advances': [
+    'DEBIT_NOTE',
+    'CREDIT_NOTE',
+    'CREDIT_APPLICATION',
+    'CREDIT_REFUND',
+    'ADVANCE',
+    'ADVANCE_APPLICATION',
+    'ADVANCE_RELEASE',
+  ],
+  'Impairment and reconciliation': [
+    'IMPAIRMENT',
+    'WRITE_OFF',
+    'OPENING_IMPORT',
+    'OPENING_VOID',
+    'RECONCILIATION',
+    'REVERSAL',
+  ],
+};
+
 export function DocumentForm({
   w,
   send,
   busy,
+  initialKind = 'CATEGORY',
+  onKindChange,
 }: {
   w: Register;
   send: Send;
   busy: boolean;
+  initialKind?: string;
+  onKindChange?: (kind: string) => void;
 }) {
-  const [kind, setKind] = useState('CATEGORY'),
+  const [kind, setKind] = useState(initialKind),
     [v, set] = useState<Record<string, string>>({}),
     [key, setKey] = useState(() => crypto.randomUUID());
   const [openingItems, setOpeningItems] = useState<Record<string, string>[]>(
@@ -40,6 +65,14 @@ export function DocumentForm({
   const [external, setExternal] = useState([
     { date: w.today, reference: '', amount: '' },
   ]);
+  function resetKind(next: string) {
+    setKind(next);
+    setOpeningItems([]);
+    setExternal([{ date: w.today, reference: '', amount: '' }]);
+    set({});
+    setKey(crypto.randomUUID());
+  }
+  if (onKindChange && kind !== initialKind) resetKind(initialKind);
   const change = (name: string, value: string) => {
     set((current) => ({ ...current, [name]: value }));
     setKey(crypto.randomUUID());
@@ -148,17 +181,13 @@ export function DocumentForm({
       <div className="grid gap-3 md:grid-cols-3">
         <Field
           label="Document type"
+          optionGroups={documentGroups}
           value={kind}
           options={Object.entries(names).map(([value, label]) => ({
             value,
             label,
           }))}
-          change={(x) => {
-            setKind(x);
-            setOpeningItems([]);
-            set({});
-            setKey(crypto.randomUUID());
-          }}
+          change={onKindChange ?? resetKind}
         />
         {field('reference', 'Source reference or category name')}
         {field('date', 'Effective date', undefined, 'date', w.today)}

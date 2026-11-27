@@ -66,15 +66,25 @@ function mount(permissions: string[]) {
   );
 }
 it('shows paid and outstanding amounts to a reader and opens the originating invoice', async () => {
-  mount(['finance-foundation:read']);
+  mount(['finance-foundation:read', 'invoices:read']);
   expect((await screen.findByText('INV-FLEET')).getAttribute('href')).toBe(
     '/apps/finance/invoices/' + invoice.id,
   );
-  expect(screen.getByText('5000000')).toBeTruthy();
-  expect(screen.getByText('10000000')).toBeTruthy();
+  expect(screen.getByText('5,000,000')).toBeTruthy();
+  expect(screen.getByText('10,000,000')).toBeTruthy();
   expect(screen.getByText('66.67%')).toBeTruthy();
   expect(screen.getByText('33.33%')).toBeTruthy();
   expect(screen.queryByText('New document')).toBeNull();
+});
+it('keeps balances visible without offering invoice or receipt links a reader cannot open', async () => {
+  mount(['finance-foundation:read']);
+  expect((await screen.findByText('INV-FLEET')).closest('a')).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Receipt vouchers' })).toBeNull();
+  expect(
+    screen.queryByRole('link', {
+      name: 'Customer invoices and premium billing',
+    }),
+  ).toBeNull();
 });
 it('shows the five aging buckets for the selected currency and reporting date', async () => {
   mount(['finance-foundation:read']);

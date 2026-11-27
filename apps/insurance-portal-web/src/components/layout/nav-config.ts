@@ -42,11 +42,15 @@ import {
   MapPinned,
   ScrollText,
 } from 'lucide-react';
+import {
+  financeDestinations,
+  financeDirectory,
+} from '@/modules/tenant/finance/finance-navigation';
 import { buildClaimsNavNodes } from '@/modules/tenant/claims/nav';
 import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
 import { buildMotorInsuranceNavNodes } from '@/modules/tenant/motor-insurance/nav';
 import type { AuthUser } from '@/types';
-import { isStandardCompanyUser } from '@/lib/auth/permissions';
+import { canAccessRoute, isStandardCompanyUser } from '@/lib/auth/permissions';
 
 export interface NavLeaf {
   kind: 'link';
@@ -55,6 +59,9 @@ export interface NavLeaf {
   label: string;
   to: string;
   icon: ComponentType<{ className?: string }>;
+  subgroup?: string;
+  keywords?: string[];
+  directoryOnly?: boolean;
   permission?: string;
   anyPermission?: string[];
   /** Each group must have at least one permission the user holds. */
@@ -62,6 +69,13 @@ export interface NavLeaf {
   anyRole?: string[];
   allowedScopes?: Array<'platform' | 'company' | 'customer'>;
   hideForStandardUser?: boolean;
+}
+
+export function canSeeNavLeaf(
+  user: AuthUser | null | undefined,
+  leaf: NavLeaf,
+): boolean {
+  return canAccessRoute(user, { ...leaf, requiredPermission: leaf.permission });
 }
 
 export interface NavGroup {
@@ -364,132 +378,7 @@ export const NAV_NODES: NavNode[] = [
     kind: 'group',
     label: 'Finance',
     icon: Receipt,
-    children: [
-      {
-        kind: 'link',
-        label: 'Fixed assets',
-        to: '/apps/finance/fixed-assets',
-        icon: Receipt,
-        permission: 'finance-foundation:read',
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
-        label: 'Accounts receivable',
-        to: '/apps/finance/receivables',
-        icon: Receipt,
-        permission: 'finance-foundation:read',
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
-        label: 'Accounts payable and expenses',
-        to: '/apps/finance/payables',
-        icon: Receipt,
-        permission: 'finance-foundation:read',
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
-        label: 'My expenses and imprests',
-        to: '/apps/finance/my-expenses',
-        icon: FileText,
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
-        label: 'Foundation review',
-        to: '/apps/finance/foundation',
-        icon: BookOpen,
-        permission: 'finance-foundation:read',
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
-        label: 'Accounting setup',
-        to: '/apps/finance/setup',
-        icon: BookOpen,
-        permission: 'finance-foundation:read',
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
-        label: 'Dashboard',
-        to: '/apps/finance/dashboard',
-        icon: Radar,
-        permission: 'finance:dashboard',
-      },
-      {
-        kind: 'link',
-        label: 'Invoices',
-        to: '/apps/finance/invoices',
-        icon: FileText,
-        permission: 'invoices:read',
-      },
-      {
-        kind: 'link',
-        label: 'Payments',
-        to: '/apps/finance/payments',
-        icon: FileText,
-        permission: 'payments:read',
-      },
-      {
-        kind: 'link',
-        label: 'Receipts',
-        to: '/apps/finance/receipts',
-        icon: FileText,
-        permission: 'receipts:read',
-      },
-      {
-        kind: 'link',
-        label: 'Refunds',
-        to: '/apps/finance/refunds',
-        icon: FileText,
-        permission: 'refunds:read',
-      },
-      {
-        kind: 'link',
-        label: 'Reconciliation',
-        to: '/apps/finance/reconciliation',
-        icon: FileText,
-        permission: 'reconciliation:read',
-      },
-      {
-        kind: 'link',
-        label: 'Commission Accruals',
-        to: '/apps/finance/commission-accruals',
-        icon: FileText,
-        permission: 'commissions:read',
-      },
-      {
-        kind: 'link',
-        label: 'Commission Payments',
-        to: '/apps/finance/commission-payments',
-        icon: FileText,
-        permission: 'commissions:read',
-      },
-      {
-        kind: 'link',
-        label: 'Journals',
-        to: '/apps/finance/journals',
-        icon: FileText,
-        permission: 'finance-journals:read',
-      },
-      {
-        kind: 'link',
-        label: 'Event Monitoring',
-        to: '/apps/finance/events',
-        icon: FileText,
-        permission: 'finance-events:read',
-      },
-      {
-        kind: 'link',
-        label: 'Reinsurance',
-        to: '/apps/reinsurance',
-        icon: Landmark,
-        permission: 'reinsurance:read',
-      },
-    ],
+    children: [financeDirectory, ...financeDestinations],
   },
   {
     kind: 'group',

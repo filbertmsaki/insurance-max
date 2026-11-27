@@ -1,10 +1,10 @@
+import { financeHref } from '@/modules/tenant/finance/finance-navigation';
 import { Fragment, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, ShieldCheck, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { APP_NAME } from '@/modules/shared/config';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { canAccessRoute } from '@/lib/auth/permissions';
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
   NAV_NODES,
+  canSeeNavLeaf,
   isNavGroupHidden,
   type NavLeaf,
   type NavGroup,
@@ -26,20 +27,15 @@ function useNavFilter() {
   const { user } = useAuthStore();
 
   function isLeafVisible(leaf: NavLeaf): boolean {
-    return canAccessRoute(user, {
-      requiredPermission: leaf.permission,
-      anyPermission: leaf.anyPermission,
-      anyPermissionGroups: leaf.anyPermissionGroups,
-      anyRole: leaf.anyRole,
-      allowedScopes: leaf.allowedScopes,
-      hideForStandardUser: leaf.hideForStandardUser,
-    });
+    return canSeeNavLeaf(user, leaf);
   }
 
   function visibleChildren(group: NavGroup): NavLeaf[] {
     if (isNavGroupHidden(group, user)) return [];
 
-    return group.children.filter(isLeafVisible);
+    return group.children.filter(
+      (leaf) => !leaf.directoryOnly && isLeafVisible(leaf),
+    );
   }
 
   return { isLeafVisible, visibleChildren };
@@ -94,49 +90,51 @@ interface LeafItemProps {
   leaf: NavLeaf;
   collapsed: boolean;
   indented?: boolean;
+  active?: boolean;
 }
 
-function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
+function LeafItem({
+  leaf,
+  collapsed,
+  indented = false,
+  active,
+}: LeafItemProps) {
   const { pathname, search } = useLocation();
-  const isActive = isNavLinkActive(pathname, search, leaf.to);
+  const isActive = active ?? isNavLinkActive(pathname, search, leaf.to);
 
   if (indented) {
     return (
-      <NavLink
-        to={leaf.to}
-        end={leaf.to === '/apps/dashboard'}
-        aria-current={isActive ? 'page' : false}
-        className={() =>
-          cn(
-            'relative flex items-center py-[7px] pl-[3.25rem] pr-5 text-[13px] transition-colors duration-150 outline-none',
-            'before:absolute before:left-[2.1rem] before:top-1/2 before:h-px before:w-1.5 before:-translate-y-1/2 before:transition-all',
-            isActive
-              ? 'text-white before:w-2 before:bg-white'
-              : 'text-vz-sidebar-item before:bg-vz-sidebar-item/70 hover:text-white hover:before:bg-white',
-          )
-        }
+      <Link
+        to={financeHref(leaf.to, pathname, search)}
+        aria-current={isActive ? 'page' : undefined}
+        className={cn(
+          'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white relative flex items-center py-[7px] pl-[3.25rem] pr-5 text-[13px] transition-colors duration-150 outline-none',
+          'before:absolute before:left-[2.1rem] before:top-1/2 before:h-px before:w-1.5 before:-translate-y-1/2 before:transition-all',
+          isActive
+            ? 'text-white before:w-2 before:bg-white'
+            : 'text-vz-sidebar-item before:bg-vz-sidebar-item/70 hover:text-white hover:before:bg-white',
+        )}
       >
         <span className="truncate">{leaf.label}</span>
-      </NavLink>
+      </Link>
     );
   }
 
   const inner = (
-    <NavLink
-      to={leaf.to}
-      end={leaf.to === '/apps/dashboard'}
-      aria-current={isActive ? 'page' : false}
-      className={() =>
-        cn(
-          sidebarLinkClass(isActive),
-          collapsed && 'mx-auto h-11 w-11 justify-center rounded-md px-0 py-0',
-          collapsed && isActive && 'bg-white/10',
-        )
-      }
+    <Link
+      to={financeHref(leaf.to, pathname, search)}
+      aria-label={collapsed ? leaf.label : undefined}
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        sidebarLinkClass(isActive),
+        'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white',
+        collapsed && 'mx-auto h-11 w-11 justify-center rounded-md px-0 py-0',
+        collapsed && isActive && 'bg-white/10',
+      )}
     >
       <leaf.icon className="h-[18px] w-[18px] shrink-0" />
       {!collapsed && <span className="truncate">{leaf.label}</span>}
-    </NavLink>
+    </Link>
   );
 
   if (!collapsed) return inner;
@@ -160,21 +158,28 @@ interface GroupItemProps {
 }
 
 function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const { visibleChildren } = useNavFilter();
 
   const children = visibleChildren(group);
-  const hasActive = children.some((c) =>
-    isNavLinkActive(pathname, '', c.to.split('?')[0]),
-  );
+  const matched = children
+    .filter((leaf) => isNavLinkActive(pathname, search, leaf.to))
+    .sort((a, b) => b.to.length - a.to.length)[0];
+  const hasActive = !!matched;
+  const sections = new Map<string, NavLeaf[]>();
+  for (const leaf of children) {
+    const name = leaf.subgroup ?? '';
+    sections.set(name, [...(sections.get(name) ?? []), leaf]);
+  }
 
   const [isOpen, setIsOpen] = useState(hasActive);
 
   // Re-sync open state when route changes (e.g. navigating from collapsed mode)
-  const [prevHasActive, setPrevHasActive] = useState(hasActive);
-  if (hasActive !== prevHasActive) {
-    setPrevHasActive(hasActive);
+  const locationKey = pathname + search;
+  const [previousLocation, setPreviousLocation] = useState(locationKey);
+  if (locationKey !== previousLocation) {
+    setPreviousLocation(locationKey);
     if (hasActive) setIsOpen(true);
   }
 
@@ -187,7 +192,7 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
         onExpandSidebar();
         setIsOpen(true);
       } else {
-        navigate(children[0].to);
+        navigate(financeHref(children[0].to, pathname, search));
       }
     };
 
@@ -195,6 +200,7 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
       <Tooltip>
         <TooltipTrigger asChild>
           <button
+            aria-label={group.label}
             onClick={handleClick}
             className={cn(
               'mx-auto flex h-11 w-11 items-center justify-center rounded-md transition-colors duration-150',
@@ -220,7 +226,10 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
       <button
         onClick={() => setIsOpen((o) => !o)}
         aria-expanded={isOpen}
-        className={cn(sidebarLinkClass(hasActive), 'w-full')}
+        className={cn(
+          sidebarLinkClass(hasActive),
+          'w-full focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white',
+        )}
       >
         <group.icon className="h-[18px] w-[18px] shrink-0" />
         <span className="flex-1 truncate text-left">{group.label}</span>
@@ -232,8 +241,9 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
         />
       </button>
 
-      {/* Animated children */}
       <div
+        inert={!isOpen}
+        aria-hidden={!isOpen}
         className={cn(
           'grid transition-[grid-template-rows] duration-200 ease-in-out',
           isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
@@ -241,9 +251,29 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
       >
         <div className="overflow-hidden">
           <div className="pb-1.5">
-            {children.map((leaf) => (
-              <LeafItem key={leaf.to} leaf={leaf} collapsed={false} indented />
-            ))}
+            {Array.from(sections, ([section, leaves]) => {
+              const links = leaves.map((leaf) => (
+                <LeafItem
+                  key={leaf.to}
+                  leaf={leaf}
+                  collapsed={false}
+                  indented
+                  active={leaf.to === matched?.to}
+                />
+              ));
+              if (!section) return <Fragment key="main">{links}</Fragment>;
+              return (
+                <details
+                  key={section}
+                  open={matched?.subgroup === section || undefined}
+                >
+                  <summary className="cursor-pointer py-2 pl-9 pr-3 text-[13px] font-semibold text-white focus-visible:ring-2 focus-visible:ring-inset">
+                    {section}
+                  </summary>
+                  {links}
+                </details>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -307,7 +337,7 @@ export function Sidebar({
           <button
             onClick={onClose}
             aria-label="Close menu"
-            className="ml-auto rounded-md p-1.5 text-vz-sidebar-item transition-colors hover:bg-white/10 hover:text-white"
+            className="ml-auto grid size-11 place-items-center rounded-md focus-visible:ring-2 focus-visible:ring-white text-vz-sidebar-item transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>

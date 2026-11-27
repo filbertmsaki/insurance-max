@@ -79,7 +79,50 @@ export const financeTableApi = {
     ),
 };
 
+export interface ManualInvoiceCustomer {
+  id: string;
+  code: string;
+  label: string;
+}
+type ManualInvoiceOptions =
+  | { ready: false }
+  | {
+      ready: true;
+      currency: string;
+      scales: Record<string, number>;
+      terms: { code: string; label: string }[];
+    };
+
 export const financeApi = {
+  manualInvoiceOptions: (signal?: AbortSignal) =>
+    apiClient
+      .get<ManualInvoiceOptions>('/tenant/finance/manual-invoice/options', {
+        signal,
+      })
+      .then((r) => r.data),
+  manualInvoiceCustomers: (search: string, signal?: AbortSignal) =>
+    apiClient
+      .get<
+        ManualInvoiceCustomer[]
+      >('/tenant/finance/manual-invoice/customers', { params: { search }, signal })
+      .then((r) => r.data),
+  createManualInvoice: (input: {
+    insurer_company_id: string;
+    customer_id: string;
+    currency: string;
+    invoice_type: 'FEE';
+    payment_term_code?: string;
+    items: {
+      item_type: 'FEE';
+      item_name: string;
+      quantity: string;
+      unit_amount: string;
+      total_amount: string;
+    }[];
+  }) =>
+    apiClient
+      .post<FinanceInvoice>('/tenant/finance/invoices', input)
+      .then((r) => r.data),
   getDashboardSummary: () =>
     apiClient
       .get<FinanceDashboardSummary>('/tenant/finance/dashboard/summary')

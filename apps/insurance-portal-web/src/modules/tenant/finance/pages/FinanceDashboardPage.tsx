@@ -1,3 +1,6 @@
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { canSeeNavLeaf } from '@/components/layout/nav-config';
+import { financeDestinations, financeDirectory } from '../finance-navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -26,6 +29,18 @@ function recordCount(rows: FinanceDashboardAmount[]) {
 }
 
 export function FinanceDashboardPage() {
+  const user = useAuthStore((s) => s.user);
+  const shortcuts = [
+    financeDirectory,
+    ...financeDestinations.filter((leaf) =>
+      [
+        '/apps/finance/invoices',
+        '/apps/finance/payments',
+        '/apps/finance/receipts',
+        '/apps/finance/reconciliation',
+      ].includes(leaf.to),
+    ),
+  ].filter((leaf) => canSeeNavLeaf(user, leaf));
   const summary = useQuery({
     queryKey: ['finance', 'dashboard', 'summary'],
     queryFn: financeApi.getDashboardSummary,
@@ -78,18 +93,11 @@ export function FinanceDashboardPage() {
               Quick access
             </h2>
             <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm">
-                <Link to="/apps/finance/invoices">Invoices</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link to="/apps/finance/payments">Payments</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link to="/apps/finance/receipts">Receipts</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link to="/apps/finance/reconciliation">Reconciliation</Link>
-              </Button>
+              {shortcuts.map((leaf) => (
+                <Button asChild size="sm" variant="outline" key={leaf.to}>
+                  <Link to={leaf.to}>{leaf.label}</Link>
+                </Button>
+              ))}
             </div>
           </CardContent>
         </Card>

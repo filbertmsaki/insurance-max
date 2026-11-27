@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   render,
@@ -108,18 +109,20 @@ const setup = (
     .spyOn(apiClient, 'post')
     .mockResolvedValue({ data: { id: uuid(84) } });
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({
-          defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-          },
-        })
-      }
-    >
-      <GeneralLedgerWorkspace />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: false },
+              mutations: { retry: false },
+            },
+          })
+        }
+      >
+        <GeneralLedgerWorkspace />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
   return { post, get };
 };

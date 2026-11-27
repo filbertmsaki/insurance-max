@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -20,6 +21,9 @@ import { usePageTitle } from '@/modules/shared/meta/page-title';
 export function FinanceReceiptDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const readPayment = useAuthStore((s) => s.hasPermission('payments:read'));
+  const readInvoice = useAuthStore((s) => s.hasPermission('invoices:read'));
+  const canReverse = useAuthStore((s) => s.hasPermission('receipts:reverse'));
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['finance', 'receipt', id],
@@ -93,7 +97,8 @@ export function FinanceReceiptDetailPage() {
           noun="receipt"
           filePrefix="Receipt"
         />
-        {['POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED'].includes(
+        {canReverse &&
+        ['POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED'].includes(
           receipt.status,
         ) ? (
           <Button
@@ -104,7 +109,7 @@ export function FinanceReceiptDetailPage() {
             Reverse Receipt
           </Button>
         ) : null}
-        {receipt.payment_transaction_id ? (
+        {readPayment && receipt.payment_transaction_id ? (
           <Button
             variant="outline"
             onClick={() =>
@@ -116,7 +121,7 @@ export function FinanceReceiptDetailPage() {
             Open Payment Transaction
           </Button>
         ) : null}
-        {receipt.invoice_id ? (
+        {readInvoice && receipt.invoice_id ? (
           <Button
             variant="outline"
             onClick={() =>

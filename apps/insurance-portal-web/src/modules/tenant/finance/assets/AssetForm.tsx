@@ -14,11 +14,48 @@ import {
   type Kind,
 } from './asset-model';
 
+const documentGroups = {
+  'Asset setup': ['GROUP', 'LOCATION', 'CATEGORY'],
+  'Acquisition and custody': [
+    'ACQUIRE',
+    'OPENING',
+    'CAPITALIZE',
+    'CAPITAL_ADDITION',
+    'RECLASSIFY',
+    'ASSIGN',
+    'TRANSFER',
+    'MAINTENANCE_PLAN',
+    'MAINTENANCE_COMPLETE',
+    'VERIFY',
+  ],
+  'Valuation and disposal': [
+    'DEPRECIATE',
+    'ESTIMATE',
+    'REVALUE',
+    'IMPAIR',
+    'RESTORE',
+    'DISPOSE',
+    'WRITE_OFF',
+    'REVERSE',
+  ],
+  Leases: [
+    'LEASE_START',
+    'LEASE_EXEMPT',
+    'LEASE_EXPENSE',
+    'LEASE_END',
+    'LEASE_TAKE_OWNERSHIP',
+    'LEASE_INTEREST',
+    'LEASE_PAYMENT',
+    'LEASE_REMEASURE',
+  ],
+};
+
 export function AssetForm({
   w,
   save,
   busy,
   initial = 'ACQUIRE',
+  onKindChange,
   scope,
   identity,
 }: {
@@ -26,6 +63,7 @@ export function AssetForm({
   save: Save;
   busy: boolean;
   initial?: Kind;
+  onKindChange?: (kind: Kind) => void;
   scope: { bookId: string; legalEntityId: string };
   identity: string;
 }) {
@@ -41,6 +79,17 @@ export function AssetForm({
     [source, S] = useState(''),
     [key, K] = useState(() => crypto.randomUUID()),
     [error, err] = useState('');
+  function resetKind(next: Kind) {
+    setKind(next);
+    setFields({ date: w.today, method: 'STRAIGHT_LINE', model: 'COST' });
+    setRoles({});
+    setDims({});
+    E(undefined);
+    S('');
+    K(crypto.randomUUID());
+    err('');
+  }
+  if (onKindChange && kind !== initial) resetKind(initial);
   const change = (k: string, v: string) =>
     setFields((f) => {
       const next = { ...f, [k]: v };
@@ -147,16 +196,9 @@ export function AssetForm({
     >
       <Field
         label="Operation"
+        optionGroups={documentGroups}
         value={kind}
-        change={(v) => {
-          setKind(v as Kind);
-          setFields({ date: w.today, method: 'STRAIGHT_LINE', model: 'COST' });
-          setRoles({});
-          setDims({});
-          S('');
-          K(crypto.randomUUID());
-          err('');
-        }}
+        change={(value) => (onKindChange ?? resetKind)(value as Kind)}
         options={Object.entries(operations).map(([value, label]) => ({
           value,
           label,

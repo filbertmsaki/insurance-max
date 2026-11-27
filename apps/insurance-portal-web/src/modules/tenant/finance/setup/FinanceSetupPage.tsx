@@ -1,3 +1,4 @@
+import { useFinanceView, useFinanceBook } from '../use-finance-view';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -1127,10 +1128,18 @@ function BookSetup({
         return '';
       }
     }),
-    [tab, setTab] = useState<
-      'steps' | 'company' | 'configuration' | 'allocations' | 'operating'
-    >('steps'),
     [success, setSuccess] = useState(false);
+  const {
+    view: tab,
+    openView: setTab,
+    control: selectedControl,
+  } = useFinanceView([
+    'steps',
+    'operating',
+    'company',
+    'configuration',
+    'allocations',
+  ]);
   const client = useQueryClient(),
     key = [
       'finance-setup',
@@ -1338,6 +1347,8 @@ function BookSetup({
         </TabsContent>
         <TabsContent value="operating">
           <OperatingBook
+            selectedControl={selectedControl}
+            showAll={() => setTab('operating')}
             overview={overview}
             scope={scope}
             canRelease={permissions.includes('finance-foundation:release')}
@@ -1601,13 +1612,13 @@ function ScopedSetup({
   identity: string[];
   permissions: string[];
 }) {
-  const [book, setBook] = useState('');
   const [editingStep, setEditingStep] = useState(false);
   const query = useQuery({
     ...readOptions,
     queryKey: ['finance-setup', ...identity, 'scopes'],
     queryFn: ({ signal }) => foundationReadApi.scopes(signal),
   });
+  const { selected, selectBook } = useFinanceBook(query.data);
   if (query.isError) return <ErrorBox error={query.error} />;
   if (!query.data)
     return <p role="status">Checking authorized Finance books…</p>;
@@ -1628,8 +1639,7 @@ function ScopedSetup({
       </p>
     );
   const key = (s: FoundationScope) =>
-      [s.tenantId, s.legalEntityId, s.bookId].join('/'),
-    selected = book ? query.data.find((s) => key(s) === book) : query.data[0];
+    [s.tenantId, s.legalEntityId, s.bookId].join('/');
   return (
     <div className="space-y-5">
       <section
@@ -1642,7 +1652,10 @@ function ScopedSetup({
             className={control}
             disabled={editingStep}
             value={selected ? key(selected) : ''}
-            onChange={(e) => setBook(e.target.value)}
+            onChange={(e) => {
+              const book = query.data.find((s) => key(s) === e.target.value);
+              if (book) selectBook(book.bookId);
+            }}
           >
             <option value="" disabled>
               Select an authorized book

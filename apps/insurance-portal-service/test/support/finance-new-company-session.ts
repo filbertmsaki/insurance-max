@@ -34,6 +34,7 @@ import { QuotationPaymentProjectionService } from '../../src/modules/tenant/fina
 import { PolicyTransactionRefundProjectionService } from '../../src/modules/tenant/policy-transactions/services/policy-transaction-refund-projection.service';
 import { PolicyTransactionPaymentProjectionService } from '../../src/modules/tenant/finance/integrations/policy-finance/policy-transaction-payment-projection.service';
 import { BillingCommissionService } from '../../src/modules/tenant/finance/receivables/billing/billing-commission.service';
+import { ManualInvoiceOptionsService } from '../../src/modules/tenant/finance/receivables/invoices/manual-invoice-options.service';
 import { FinanceController } from '../../src/modules/tenant/finance/finance.controller';
 import { FinanceGlVoucherService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-voucher.service';
 import { FinanceGlWorkflowsService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-workflows.service';
@@ -146,6 +147,7 @@ async function startFinancePortal(db: DataSource) {
       AuditService,
       RequestContextService,
       DataAccessScopeService,
+      ManualInvoiceOptionsService,
       IdentifierGeneratorService,
       BusinessReferenceService,
       ReinsuranceRecoveryService,

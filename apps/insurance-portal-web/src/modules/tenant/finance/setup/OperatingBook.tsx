@@ -7,11 +7,15 @@ import type { FoundationScope } from '../foundation/api';
 export function OperatingBook({
   overview,
   scope,
+  selectedControl,
+  showAll,
   canRelease,
   busy,
   run,
   openStep,
 }: {
+  selectedControl?: string | null;
+  showAll?: () => void;
   overview: SetupOverview;
   scope: FoundationScope;
   canRelease: boolean;
@@ -26,6 +30,8 @@ export function OperatingBook({
     releases = operating?.approvedReleases ?? [];
   const release = releases.find((r) => r.id === releaseId),
     final = overview.steps.find((s) => s.id === 'G04-10')?.latest;
+  const selected = FIN01_MODULES.find(([code]) => code === selectedControl);
+  const modules = selected ? [selected] : FIN01_MODULES;
   return (
     <section className="space-y-4 rounded border p-4">
       <h2 className="font-semibold">
@@ -42,6 +48,11 @@ export function OperatingBook({
             ' (exclusive)'
           : 'Awaiting book activation'}
       </p>
+      {selected && (
+        <Button variant="outline" type="button" onClick={showAll}>
+          Show all setup controls
+        </Button>
+      )}
       <table className="w-full text-left text-sm">
         <thead>
           <tr>
@@ -51,7 +62,7 @@ export function OperatingBook({
           </tr>
         </thead>
         <tbody>
-          {FIN01_MODULES.map(([code, name, ...dependencies]) => {
+          {modules.map(([code, name, ...dependencies]) => {
             const steps = dependencies.map((id) =>
               overview.steps.find((s) => s.id === id),
             );
