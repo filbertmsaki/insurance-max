@@ -123,6 +123,9 @@ export function ApForm({
       ),
     ].map((value) => ({ value, label: value })),
     bankId: bank,
+    tillId: (registry.cashTills ?? [])
+      .filter((t) => t.currency === v.currency)
+      .map((t) => ({ value: t.id, label: t.code + ' · ' + t.name })),
     bankRole:
       kind === 'SUPPLIER_REFUND' || kind === 'RETIREMENT'
         ? (registry.receivingRoles ?? []).map((r) => ({
@@ -552,7 +555,10 @@ export function ApForm({
         {['SUPPLIER_REFUND', 'CREDIT_APPLICATION'].includes(kind) &&
           field('creditId')}
         {kind === 'OPENING_IMPORT' && field('controlRole')}
+        {money && !employee && !!registry.cashTills?.length && field('tillId')}
+        {money && !!d.tillId && field('scheduledDate')}
         {money &&
+          !d.tillId &&
           ['bankId', 'scheduledDate', ...(!employee ? ['bankRole'] : [])].map(
             field,
           )}

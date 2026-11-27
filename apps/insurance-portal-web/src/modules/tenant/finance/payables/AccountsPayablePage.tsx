@@ -4,6 +4,7 @@ import {
   FinanceBookWorkspace,
 } from '../FinanceBookNavigation';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -210,7 +211,8 @@ function Work({
         })
       ).data,
   });
-  const [chosen, C] = useState(''),
+  const [params] = useSearchParams();
+  const [chosen, C] = useState(() => params.get('voucher') ?? ''),
     [filter, F] = useState(''),
     [kind, K] = useState(''),
     [reason, R] = useState(''),
@@ -657,6 +659,7 @@ function Work({
                       )}
                     {canPrepare &&
                       r.state === 'APPROVED' &&
+                      !r.data.details.tillId &&
                       (moneyKinds.includes(r.kind) || r.kind === 'BATCH') && (
                         <Button
                           variant="outline"
@@ -670,10 +673,11 @@ function Work({
                       (r.data.lines.length > 0 ||
                         r.kind === 'REVERSAL' ||
                         r.kind === 'BATCH') &&
+                      (!r.data.details.tillId &&
                       (r.kind === 'BATCH' ||
-                      (moneyKinds.includes(r.kind) && Number(r.amount) > 0) ||
-                      Number(r.data.details.cashReturned) > 0 ||
-                      r.data.details.bankAmount ? (
+                        (moneyKinds.includes(r.kind) && Number(r.amount) > 0) ||
+                        Number(r.data.details.cashReturned) > 0 ||
+                        r.data.details.bankAmount) ? (
                         <>
                           <label>
                             Signed bank{' '}

@@ -715,7 +715,56 @@ export class TradePayablesService {
           (!!returned &&
             moneyMinor(returned, b.context.currencyScales[r.currency]) > 0n) ||
           (r.kind === 'REVERSAL' && !!p.details.bankAmount);
-        if (bankNeeded) {
+        let physicalSettlement: Record<string, string> | undefined;
+        if (bankNeeded && p.details.tillId) {
+          if (batchId || observation)
+            conflict(
+              'Physical till payments must be confirmed by the assigned cashier.',
+            );
+          const [shift] = await m.query(
+            `SELECT s.id,s.day::text,(now() AT TIME ZONE $4)::date::text today,a.payment_limit,a.balance,
+            clock_timestamp() settled FROM finance_cb_shifts s JOIN finance_cb_balances a ON a.id=s.account_id
+            WHERE a.id=$1 AND a.book_id=$2 AND a.kind='TILL' AND a.active AND a.currency=$5 AND a.account_code=$6 AND s.cashier=$3 AND s.close_id IS NULL`,
+            [
+              p.details.tillId,
+              b.book_id,
+              a.sourceUserId,
+              b.timezone,
+              r.currency,
+              p.bankAccount,
+            ],
+          );
+          if (
+            !shift ||
+            shift.day !== shift.today ||
+            shift.day < (r.due_date ?? r.doc_date) ||
+            (p.details.discountUntil && shift.day > p.details.discountUntil)
+          )
+            conflict(
+              'Use the assigned cashier and open shift on the scheduled settlement date.',
+            );
+          if (
+            r.kind !== 'REVERSAL' &&
+            (money >
+              moneyMinor(
+                shift.payment_limit,
+                b.context.currencyScales[r.currency],
+              ) ||
+              money >
+                moneyMinor(shift.balance, b.context.currencyScales[r.currency]))
+          )
+            conflict(
+              'The payment exceeds the till balance or single payment limit.',
+            );
+          physicalSettlement = {
+            issuer: 'CASH_OFFICE',
+            reference: voucherNumber(r),
+            settledAt: new Date(shift.settled).toISOString(),
+            shiftId: shift.id,
+            cashier: a.sourceUserId!,
+          };
+          postingDate = shift.day;
+        } else if (bankNeeded) {
           const verified = await verifyBankSettlement(
             m,
             {
@@ -791,7 +840,7 @@ export class TradePayablesService {
               });
         await m.query(
           'UPDATE finance_ap_records SET candidate_id=$1,settlement=$2 WHERE id=$3',
-          [candidate.id, observation ?? null, id],
+          [candidate.id, physicalSettlement ?? observation ?? null, id],
         );
         await audit(m, r, 'SUBMIT_GL', a, reference);
         return visible(await record(m, b.book_id, id));
@@ -851,6 +900,10 @@ export class TradePayablesService {
         const instructions: Fields[] = [];
         for (const key of r.data.batchItems ?? [id]) {
           const v = await record(m, b.book_id, key);
+          if (v.data.details.tillId)
+            conflict(
+              'Use the assigned cashier to settle this physical payment.',
+            );
           if (v.candidate_id || v.settlement) continue;
           const assigned = await activeBatch({ m, b }, key);
           if (
@@ -1038,6 +1091,16 @@ export class TradePayablesService {
         );
         return {
           records: rows.map(visible),
+          cashTills: (
+            await m.query(
+              "SELECT to_regclass('public.finance_cb_accounts') IS NOT NULL installed",
+            )
+          )[0].installed
+            ? await m.query(
+                "SELECT id,code,name,currency FROM finance_cb_accounts WHERE book_id=$1 AND active AND kind='TILL' ORDER BY code",
+                [b.book_id],
+              )
+            : [],
           terms: terms(b),
           staff,
           companies: await relatedCompanies(m, b),

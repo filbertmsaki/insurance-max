@@ -10,6 +10,7 @@ import { ReinsuranceRecoveryService } from '../../src/modules/tenant/reinsurance
 import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
 import { FinanceGlWorkflowsService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-workflows.service';
 import { exerciseGeneralLedger } from '../support/finance-general-ledger-workflow';
+import { exerciseCashBank } from '../support/finance-cash-bank-workflow';
 import { exerciseFixedAssets } from '../support/finance-fixed-assets-workflow';
 import { exerciseCustomerAccounts } from '../support/finance-customer-accounts-workflow';
 import { exerciseTradePayables } from '../support/finance-trade-payables-workflow';
@@ -40,9 +41,18 @@ describe('FIN-01 first company through first live journals', () => {
         ' operates the asset register and posts balanced lifecycle journals exactly once',
     },
   ]);
-  it.each(cases)(
+  it.each([
+    ...cases,
+    {
+      profile: 'BROKER',
+      assetsOnly: false,
+      scenario:
+        'FIN-06 operates the cash desk, bank statements, payment channels and treasury',
+    },
+  ])(
     '$scenario',
-    async ({ profile, assetsOnly }) => {
+    async ({ profile, assetsOnly, scenario }) => {
+      const cashOnly = scenario.startsWith('FIN-06');
       const insurer = profile === 'INSURER',
         basis = insurer ? 'IFRS' : 'STATUTORY';
       await withNewCompany(
@@ -316,6 +326,14 @@ describe('FIN-01 first company through first live journals', () => {
             [company],
           );
           const accounts = [
+            ...(cashOnly
+              ? [
+                  ['112004', 'Claims Settlement', 'ASSET'],
+                  ['112003', 'USD Bank Account', 'ASSET'],
+                  ['112002', 'NMB Operations', 'ASSET'],
+                  ['112005', 'Mobile operator wallet', 'ASSET'],
+                ]
+              : []),
             ['1100', 'Cash', 'ASSET'],
             ['1200', 'Receivables', 'ASSET'],
             ['4100', 'Fees', 'INCOME'],
@@ -354,6 +372,7 @@ describe('FIN-01 first company through first live journals', () => {
               : []),
           ];
           const roleCodes = [
+            ...(cashOnly ? ['CLAIMS_BANK', 'USD_BANK', 'NMB', 'WALLET'] : []),
             'CASH',
             'AR',
             'FEES',
@@ -558,9 +577,11 @@ describe('FIN-01 first company through first live journals', () => {
                 policyReferences: ['AP-08.01'],
                 unresolvedDecisions: [],
                 debitRoles:
-                  economicEffectKey === 'REINSURANCE_SETTLEMENT'
-                    ? [dr, 'CASH']
-                    : [dr],
+                  cashOnly && economicEffectKey === 'RECEIPT'
+                    ? [dr, 'WALLET']
+                    : economicEffectKey === 'REINSURANCE_SETTLEMENT'
+                      ? [dr, 'CASH']
+                      : [dr],
                 creditRoles:
                   economicEffectKey === 'REINSURANCE_SETTLEMENT'
                     ? [cr, 'CEDED_RECEIVABLE']
@@ -695,6 +716,16 @@ describe('FIN-01 first company through first live journals', () => {
                 })),
               ],
               paymentMethods: [
+                ...(cashOnly
+                  ? [
+                      {
+                        method: 'MOBILE_MONEY',
+                        direction: 'INCOMING',
+                        accountCode: '112005',
+                        referenceRequired: true,
+                      },
+                    ]
+                  : []),
                 {
                   method: 'CASH',
                   direction: 'BOTH',
@@ -759,7 +790,11 @@ describe('FIN-01 first company through first live journals', () => {
                   ? 'ORDINARY'
                   : 'CASH',
                 debitRoles:
-                  component === 'REINSURANCE_SETTLEMENT' ? [dr, 'CASH'] : [dr],
+                  cashOnly && component === 'RECEIPT'
+                    ? [dr, 'WALLET']
+                    : component === 'REINSURANCE_SETTLEMENT'
+                      ? [dr, 'CASH']
+                      : [dr],
                 creditRoles:
                   component === 'REINSURANCE_SETTLEMENT'
                     ? [cr, 'CEDED_RECEIVABLE']
@@ -950,27 +985,32 @@ describe('FIN-01 first company through first live journals', () => {
             balances: accounts.map(([accountCode]) => ({
               accountCode,
               signedBalance:
-                insurer && accountCode === '121010'
-                  ? '1000'
-                  : insurer && accountCode === '129010'
-                    ? '-200'
-                    : insurer && accountCode === '211010'
-                      ? '-800'
-                      : insurer && accountCode === '1200'
-                        ? '150000'
-                        : insurer && accountCode === '113900'
-                          ? '-150000'
-                          : insurer && accountCode === '121002'
-                            ? '6000'
-                            : insurer && accountCode === '211001'
-                              ? '-6000'
-                              : '0',
+                cashOnly && accountCode === '112004'
+                  ? '155000000'
+                  : cashOnly && accountCode === '213001'
+                    ? '-155000000'
+                    : insurer && accountCode === '121010'
+                      ? '1000'
+                      : insurer && accountCode === '129010'
+                        ? '-200'
+                        : insurer && accountCode === '211010'
+                          ? '-800'
+                          : insurer && accountCode === '1200'
+                            ? '150000'
+                            : insurer && accountCode === '113900'
+                              ? '-150000'
+                              : insurer && accountCode === '121002'
+                                ? '6000'
+                                : insurer && accountCode === '211001'
+                                  ? '-6000'
+                                  : '0',
             })),
             sourceReference: reason,
             sourceEvidenceHash: evidenceHash,
-            explicitZeroReason: insurer
-              ? null
-              : 'New company with no historic balances.',
+            explicitZeroReason:
+              insurer || cashOnly
+                ? null
+                : 'New company with no historic balances.',
           };
           await post(checker, 'foundation/periods', {
             input: {
@@ -1333,7 +1373,7 @@ describe('FIN-01 first company through first live journals', () => {
               }),
             ).rejects.toThrow('matching effective source record');
           }
-          if (assetsOnly) {
+          if (assetsOnly || cashOnly) {
             const readiness = (await call(checker, 'foundation/gl?' + query))
               .readiness;
             expect(readiness.blockers).toEqual([]);
@@ -1351,6 +1391,27 @@ describe('FIN-01 first company through first live journals', () => {
                 ),
               },
             });
+            if (cashOnly) {
+              await exerciseCashBank({
+                call,
+                post,
+                maker,
+                checker,
+                deputy,
+                query,
+                today,
+                document,
+                branch: branches[0].id,
+                db,
+                company,
+                bookId: scope.bookId,
+                feeInput,
+                customer,
+                contextPin,
+                until,
+              });
+              return;
+            }
             await exerciseFixedAssets({
               call,
               post,

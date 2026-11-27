@@ -52,20 +52,39 @@ export async function payment(c: Context) {
     move(p, c, item.id, amount);
     return p;
   }
+  const [till] = d.tillId
+    ? await c.m.query(
+        "SELECT id,role,branch FROM finance_cb_accounts WHERE id=$1 AND book_id=$2 AND kind='TILL' AND active AND currency=$3",
+        [uuid(d.tillId, 'cash till'), c.b.book_id, c.input.currency],
+      )
+    : [];
+  if (
+    d.tillId &&
+    (!till ||
+      !cashKinds.includes(kind) ||
+      c.input.dimensions?.BRANCH !== till.branch)
+  )
+    fail('Select an active till in the voucher branch and currency.');
   const bank = cashKinds.includes(kind)
-    ? settlementRole(c, d.bankRole || cfg.bankRole)
+    ? settlementRole(c, till?.role || d.bankRole || cfg.bankRole)
     : undefined;
   if (bank) {
-    const beneficiary = await activeMaster(c, d.bankId, 'BANK');
-    if (
-      beneficiary.id !== d.bankId ||
-      beneficiary.party !== c.party ||
-      beneficiary.currency !== c.input.currency
-    )
-      conflict(
-        'Select the current approved beneficiary account in the payment currency.',
-      );
-    p.bankId = beneficiary.id;
+    if (till) {
+      p.details.tillId = till.id;
+      if (!p.evidence)
+        fail('Attach the supporting document for this physical payment.');
+    } else {
+      const beneficiary = await activeMaster(c, d.bankId, 'BANK');
+      if (
+        beneficiary.id !== d.bankId ||
+        beneficiary.party !== c.party ||
+        beneficiary.currency !== c.input.currency
+      )
+        conflict(
+          'Select the current approved beneficiary account in the payment currency.',
+        );
+      p.bankId = beneficiary.id;
+    }
     p.bankAccount = bank.accountCode!;
     p.details.bankRole = bank.code;
     p.due = date(d.scheduledDate || c.input.date);
@@ -184,6 +203,7 @@ export async function batch(c: Context) {
     const r = await record(c.m, c.b.book_id, id);
     if (
       !cashKinds.includes(r.kind) ||
+      !!r.data.details.tillId ||
       r.status !== 'APPROVED' ||
       r.currency !== c.input.currency ||
       r.due_date! > c.input.date ||

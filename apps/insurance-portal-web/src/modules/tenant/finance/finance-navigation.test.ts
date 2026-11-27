@@ -17,6 +17,7 @@ it('keeps each existing finance destination and indexes every document form once
   expect(new Set(links).size).toBe(links.length);
   for (const path of [
     'fixed-assets',
+    'cash-bank',
     'receivables',
     'payables',
     'my-expenses',
@@ -99,7 +100,7 @@ it('carries a book to a finance task while respecting an explicit destination bo
   );
 });
 
-it('finds an authorized destination for every FIN-01 through FIN-05 submodule code', () => {
+it('finds an authorized destination for every FIN-01 through FIN-06 submodule code', () => {
   const permissions = [
     ...new Set(
       financeDestinations.flatMap((leaf) =>
@@ -117,6 +118,7 @@ it('finds an authorized destination for every FIN-01 through FIN-05 submodule co
     [3, 20],
     [4, 20],
     [5, 19],
+    [6, 20],
   ]) {
     for (let i = 1; i <= count; i++) {
       const code = 'FIN-0' + module + '.' + String(i).padStart(2, '0');

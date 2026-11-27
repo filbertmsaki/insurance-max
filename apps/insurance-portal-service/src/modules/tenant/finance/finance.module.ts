@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { CashBankController } from './cash-bank/cash-bank.controller';
+import { CashBankService } from './cash-bank/cash-bank.service';
 import { FixedAssetsController } from './assets/fixed-assets/fixed-assets.controller';
 import { FixedAssetsService } from './assets/fixed-assets/fixed-assets.service';
 import { FinanceAccountingModule } from './accounting/finance-accounting.module';
@@ -49,12 +51,15 @@ import { FinanceReconciliationModule } from './reconciliation/finance-reconcilia
     TradePayablesController,
     CustomerAccountsController,
     FixedAssetsController,
+    CashBankController,
   ],
   providers: [
     TradePayablesService,
     CustomerAccountsService,
     CustomerReminderWorker,
     FixedAssetsService,
+    CashBankService,
+    { provide: 'FIN06_POSTING', useExisting: CashBankService },
     { provide: 'FIN05_POSTING', useExisting: FixedAssetsService },
     { provide: 'FIN04_POSTING', useExisting: CustomerAccountsService },
   ],

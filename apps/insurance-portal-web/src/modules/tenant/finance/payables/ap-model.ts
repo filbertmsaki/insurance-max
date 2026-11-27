@@ -84,6 +84,7 @@ export interface Register {
   staff: { id: string; name: string }[];
   companies?: Info[];
   availableCredits?: Record<string, string>;
+  cashTills?: { id: string; code: string; name: string; currency: string }[];
   receivingRoles?: { code: string; accountCode?: string | null }[];
 }
 export function currentRows(rows: Row[], kind: string) {
@@ -114,6 +115,7 @@ export const title = (key: string) =>
     discountBps: 'Discount (basis points)',
     matchOrder: 'Require three-way matching',
     bankId: 'Approved beneficiary account',
+    tillId: 'Pay from cash till (optional)',
     itemId: 'Original open item',
     advanceId: 'Available advance',
     creditId: 'Supplier credit note',

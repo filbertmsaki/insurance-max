@@ -749,6 +749,7 @@ export class FinanceLedgerFoundationService {
           );
         let customerDocument: string | undefined;
         let assetDocument: string | undefined;
+        let cashDocument: string | undefined;
         if (p.economicOrigin === 'FIN02_GL' || source.kind === 'BOOK_VOUCHER') {
           if (
             p.economicOrigin !== 'FIN02_GL' ||
@@ -788,6 +789,7 @@ export class FinanceLedgerFoundationService {
           if (!previous) await verifyGlPosting(c.manager, v);
           customerDocument = v.snapshot.arDocumentId;
           assetDocument = v.snapshot.assetDocumentId;
+          cashDocument = v.snapshot.cashDocumentId;
         }
         let nativeType: string | undefined;
         if (source.kind === 'OPERATING_DOCUMENT') {
@@ -1243,6 +1245,28 @@ export class FinanceLedgerFoundationService {
               l.dimensions,
             ],
           );
+        if (cashDocument && input.mode === 'LIVE') {
+          const receiver = this.modules?.get<{
+            posted(
+              m: EntityManager,
+              actor: FoundationActor,
+              book: string,
+              id: string,
+              candidate: string,
+              journal: string,
+            ): Promise<void>;
+          }>('FIN06_POSTING', { strict: false });
+          if (!receiver)
+            foundationFail('The cash and bank posting handler is unavailable.');
+          await receiver.posted(
+            c.manager,
+            c.actor,
+            c.ids[2],
+            cashDocument,
+            candidate.id,
+            journal.id,
+          );
+        }
         await c.manager.query(
           `INSERT INTO finance_foundation_journal_audits(tenant_id,legal_entity_id,book_id,journal_id,actor_subject_id,actor_natural_person_id,authority_id,subject_hash,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [

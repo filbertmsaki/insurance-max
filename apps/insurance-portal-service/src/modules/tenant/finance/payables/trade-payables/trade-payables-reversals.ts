@@ -81,6 +81,8 @@ export async function prepareReversal(c: Context) {
     move(p, c, v.item_id, delta, -signed(v.withholding));
   }
   if (original.settlement) {
+    if (original.data.details.tillId)
+      p.details.tillId = original.data.details.tillId;
     p.details.bankAmount = cashKinds.includes(original.kind)
       ? original.amount
       : (original.data.details.bankAmount ??

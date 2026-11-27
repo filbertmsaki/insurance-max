@@ -49,14 +49,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (
       exception instanceof Error &&
       'code' in exception &&
-      (exception.code === 'P0101' || exception.code === 'P0401')
+      (exception.code === 'P0101' ||
+        exception.code === 'P0401' ||
+        exception.code === 'P0601')
     ) {
       exception = new HttpException(
         {
           code:
-            exception.code === 'P0401'
-              ? 'RECEIVABLES_CONTROL_CONFLICT'
-              : 'FINANCE_SETUP_REQUIRED',
+            exception.code === 'P0601'
+              ? 'CASH_BANK_CONTROL_CONFLICT'
+              : exception.code === 'P0401'
+                ? 'RECEIVABLES_CONTROL_CONFLICT'
+                : 'FINANCE_SETUP_REQUIRED',
           message: exception.message,
         },
         HttpStatus.CONFLICT,

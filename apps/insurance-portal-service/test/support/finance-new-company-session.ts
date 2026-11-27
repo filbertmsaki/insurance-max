@@ -26,6 +26,8 @@ import { FinanceFoundationController } from '../../src/modules/tenant/finance/fo
 import { TradePayablesController } from '../../src/modules/tenant/finance/payables/trade-payables/trade-payables.controller';
 import { FixedAssetsController } from '../../src/modules/tenant/finance/assets/fixed-assets/fixed-assets.controller';
 import { FixedAssetsService } from '../../src/modules/tenant/finance/assets/fixed-assets/fixed-assets.service';
+import { CashBankService } from '../../src/modules/tenant/finance/cash-bank/cash-bank.service';
+import { CashBankController } from '../../src/modules/tenant/finance/cash-bank/cash-bank.controller';
 import { CustomerAccountsController } from '../../src/modules/tenant/finance/receivables/customer-accounts/customer-accounts.controller';
 import { CustomerAccountsService } from '../../src/modules/tenant/finance/receivables/customer-accounts/customer-accounts.service';
 import { TradePayablesService } from '../../src/modules/tenant/finance/payables/trade-payables/trade-payables.service';
@@ -135,6 +137,7 @@ async function startFinancePortal(db: DataSource) {
       TradePayablesController,
       CustomerAccountsController,
       FixedAssetsController,
+      CashBankController,
       FinanceController,
     ],
     providers: [
@@ -166,6 +169,8 @@ async function startFinancePortal(db: DataSource) {
       TradePayablesService,
       CustomerAccountsService,
       FixedAssetsService,
+      CashBankService,
+      { provide: 'FIN06_POSTING', useExisting: CashBankService },
       { provide: 'FIN05_POSTING', useExisting: FixedAssetsService },
       { provide: 'FIN04_POSTING', useExisting: CustomerAccountsService },
       FinanceGlWorkflowsService,

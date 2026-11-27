@@ -1,4 +1,4 @@
-import { FIN01_MODULES } from '@insurance-max/contracts';
+import { CASH_BANK_MODULES, FIN01_MODULES } from '@insurance-max/contracts';
 import { BookOpen, Receipt } from 'lucide-react';
 import type { NavLeaf } from '@/components/layout/nav-config';
 import { names as payableDocuments } from './payables/ap-model';
@@ -12,6 +12,7 @@ const ledger = 'General ledger';
 const payable = 'Accounts payable and expenses';
 const receivable = 'Accounts receivable';
 const assets = 'Fixed assets';
+const cashBank = 'Cash and bank';
 const other = 'Insurance and operations';
 
 const submoduleTerms: Record<string, string[]> = {
@@ -341,6 +342,27 @@ export const financeDestinations: NavLeaf[] = [
     ['reports', 'Asset reports'],
     ['gl-approvals', 'Asset GL approvals'],
   ]),
+  link(cashBank, 'Cash and bank workspace', 'cash-bank', foundation, {
+    keywords: ['FIN-06', 'cashbook'],
+  }),
+  ...CASH_BANK_MODULES.map(([code, label, area, action]) =>
+    link(
+      cashBank,
+      label,
+      'cash-bank?view=' +
+        area.toLowerCase().replaceAll(' ', '-') +
+        (action ? '&action=' + action : ''),
+      foundation,
+      {
+        directoryOnly: true,
+        keywords: ['FIN-06.' + code, area],
+      },
+    ),
+  ),
+  ...views(cashBank, 'cash-bank', [
+    ['review-and-history', 'Cash and bank document review'],
+    ['gl-approvals', 'Cash and bank GL approvals'],
+  ]),
   link(
     other,
     'Payment reconciliation',
@@ -396,6 +418,7 @@ const bookWorkspaces = new Set(
     'payables',
     'receivables',
     'fixed-assets',
+    'cash-bank',
   ].map((path) => (path ? '/apps/finance/' + path : '/apps/finance')),
 );
 

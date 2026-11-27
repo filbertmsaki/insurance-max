@@ -51,6 +51,7 @@ export function ApEvidenceUpload({
         />
       </label>
       <Button
+        type="button"
         variant="outline"
         disabled={!file || upload.isPending}
         onClick={() => file && upload.mutate(file)}
