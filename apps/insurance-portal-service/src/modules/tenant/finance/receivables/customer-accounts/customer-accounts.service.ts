@@ -499,6 +499,7 @@ export class CustomerAccountsService {
     const r = await document(m, book, id);
     if (r.candidate_id !== candidate)
       conflict('The journal belongs to a different customer document.');
+    if (r.state === 'POSTED' && r.journal_id === journal) return;
     const b = await activePostingBook(m, r.company_id, 'UPDATE', book);
     if (!b) conflict('This operating book is inactive.');
     await this.current(m, b, r);

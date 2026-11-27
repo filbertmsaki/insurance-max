@@ -9,6 +9,7 @@ import {
   day,
   net,
   type Asset,
+  type Doc,
   type Roles,
 } from './fixed-asset.types';
 import {
@@ -47,10 +48,24 @@ export function leaseReview(assets: Asset[]) {
   return assetEstimateReview(assets.filter((a) => a.lease));
 }
 
-export function assetEstimateReview(assets: Asset[]) {
+export function assetEstimateReview(
+  assets: Asset[],
+  estimates = new Map<string, Doc>(),
+) {
   return assets.flatMap((a) => {
     if (a.status !== 'ACTIVE') return [];
     const reasons: string[] = [];
+    const opening = estimates.get(a.code);
+    if (
+      opening?.kind === 'OPENING' &&
+      opening.input.life !== undefined &&
+      opening.input.life !== opening.plan.asset?.policy.life &&
+      !a.lease &&
+      a.policy.method !== 'NONE'
+    )
+      reasons.push(
+        `The opening specified ${opening.input.life} months but recorded ${opening.plan.asset?.policy.life}. Review the original evidence and approve a remaining-life estimate.`,
+      );
     if (needsLeaseBasis(a.lease))
       reasons.push(
         'Confirm the ownership or purchase-option terms from the lease agreement.',
@@ -61,6 +76,32 @@ export function assetEstimateReview(assets: Asset[]) {
       );
     return reasons.length ? [{ code: a.code, reasons }] : [];
   });
+}
+export function ownedAssetReview(
+  assets: Asset[],
+  documents: Doc[],
+  to: string,
+) {
+  // The register returns decisions in descending sequence, including corrections.
+  const posted = documents.filter(
+    (d) => d.state === 'POSTED' && d.effective_date <= to,
+  );
+  const reversed = new Set(posted.map((d) => d.reversal_of).filter(Boolean));
+  const estimates = new Map<string, Doc>();
+  for (const d of posted) {
+    if (estimates.has(d.code) || reversed.has(d.id)) continue;
+    if (
+      d.kind === 'OPENING' ||
+      d.kind === 'ESTIMATE' ||
+      (d.input.life !== undefined &&
+        (d.kind === 'REVALUE' || d.kind === 'CAPITAL_ADDITION'))
+    )
+      estimates.set(d.code, d);
+  }
+  return assetEstimateReview(
+    assets.filter((a) => !a.lease),
+    estimates,
+  );
 }
 export function nextDepreciation(a: Asset, scale: number) {
   if (

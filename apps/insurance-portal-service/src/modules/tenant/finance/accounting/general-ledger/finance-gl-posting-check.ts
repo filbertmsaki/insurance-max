@@ -7,10 +7,12 @@ import {
   ownedEvidence,
 } from './finance-book-request';
 import { revalue } from './finance-gl-balances';
+import { checkReservedCredit } from '../../payables/trade-payables/trade-payables-credit';
 
 export async function verifyGlPosting(
   m: EntityManager,
   v: {
+    candidate_id: string;
     company_id: string;
     book_id: string;
     source_type: string;
@@ -29,6 +31,17 @@ export async function verifyGlPosting(
       'Resume this book’s FIN-02 deployment before posting.',
     );
   if (s.evidence) await ownedEvidence(m, b, s.evidence);
+  if (s.apDocumentId) {
+    const [ap] = await m.query(
+      'SELECT d.*,d.doc_date::text FROM finance_ap_records d WHERE book_id=$1 AND candidate_id=$2 FOR UPDATE',
+      [b.book_id, v.candidate_id],
+    );
+    if (!ap || ap.state !== 'APPROVED')
+      throw new ConflictException(
+        'An approved payable document must own this journal.',
+      );
+    await checkReservedCredit(m, ap);
+  }
   if (v.source_type === 'GL_REVERSAL' || !s.programId) return;
   const [p] = await m.query(
     `SELECT * FROM finance_gl_programs p WHERE p.book_id=$1 AND p.id=$2 AND p.subject_hash=$3

@@ -1,3 +1,4 @@
+import { checkBillCredits } from './trade-payables-credit';
 import {
   fromMinor,
   moneyMinor,
@@ -411,26 +412,13 @@ export async function purchasing(c: Context) {
     if (original.withholdingRole !== cfg.withholdingRole)
       conflict('Use the original bill withholding account for its adjustment.');
     if (reverse) {
-      // Payments reduce the open balance but do not reduce the value eligible for a credit.
-      const [used] = await c.m.query(
-        `SELECT coalesce(sum(CASE WHEN n.kind='CREDIT' THEN n.amount ELSE -n.amount END),0)::text adjusted
-         FROM finance_ap_status n WHERE n.book_id=$1 AND n.data->'details'->>'itemId'=$2
-         AND ((n.kind='CREDIT' AND n.state IN ('PENDING','APPROVED')) OR (n.kind='DEBIT' AND n.posted_date<=$3))
-         AND NOT EXISTS(SELECT 1 FROM finance_ap_status v WHERE v.book_id=n.book_id AND v.kind='REVERSAL'
-           AND v.data->'details'->>'originalId'=n.id::text AND v.posted_date<=$3)`,
-        [c.b.book_id, parent.item.id, c.input.date],
+      await checkBillCredits(
+        c.m,
+        c.b.book_id,
+        parent.item.id,
+        c.input.date,
+        p.amount,
       );
-      const adjusted = String(used.adjusted);
-      const credited = adjusted.startsWith('-')
-        ? -moneyMinor(adjusted.slice(1), c.scale)
-        : moneyMinor(adjusted, c.scale);
-      if (
-        gross + credited >
-        moneyMinor(original.creditableAmount ?? parent.item.amount, c.scale)
-      )
-        conflict(
-          'The credit exceeds the invoiced amount including posted debit notes and earlier credits.',
-        );
       const applied = gross < parent.balance ? gross : parent.balance;
       let withheld =
         applied === parent.balance

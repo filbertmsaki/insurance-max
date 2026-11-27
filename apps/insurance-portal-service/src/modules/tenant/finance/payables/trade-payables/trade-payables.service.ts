@@ -60,6 +60,7 @@ import {
   tieOut,
 } from './trade-payables-reports';
 import { prepareReversal } from './trade-payables-reversals';
+import { checkReservedCredit } from './trade-payables-credit';
 import { paymentSchedule } from './trade-payables-schedule';
 import {
   openingImport,
@@ -442,6 +443,7 @@ export class TradePayablesService {
         if (r.state !== 'PENDING')
           conflict('This document already has a decision.');
         if (approve) {
+          await checkReservedCredit(m, r);
           if (r.data.evidence) await ownedEvidence(m, b, r.data.evidence);
           const scale = b.context.currencyScales[r.currency],
             amount = moneyMinor(r.amount, scale);
@@ -667,6 +669,7 @@ export class TradePayablesService {
           (!p.lines.length && r.kind !== 'REVERSAL')
         )
           conflict('Approve an accounting document before posting.');
+        await checkReservedCredit(m, r);
         if (r.party.startsWith('S:')) {
           const vendor = await record(m, b.book_id, r.party.slice(2));
           const active = await current(

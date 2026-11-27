@@ -392,6 +392,47 @@ export async function exerciseTradePayables(f: {
       ).rejects.toThrow(
         'Preserve existing supplier credits and opening allocations',
       );
+      const adjustment = (kind: string, ref: string, price: string) =>
+        doc(
+          kind,
+          ref,
+          {
+            description: 'Supplier adjustment to imported invoice',
+            itemId: tzs.id,
+            lines: [
+              {
+                item: 'MIGRATED',
+                description: 'Equipment adjustment',
+                quantity: '1',
+                unitPrice: price,
+                role: 'COMPUTERS',
+                transactionClass: 'EQUIPMENT',
+              },
+            ],
+          },
+          abcParty,
+        );
+      const extra = await approve(adjustment('DEBIT', 'SUP-DEBIT-500', '500'));
+      await ledger(await postRecord(extra));
+      const reversal = await create(
+        doc(
+          'REVERSAL',
+          'SUP-DEBIT-CORRECTION',
+          {
+            description: 'Withdraw the additional supplier charge',
+            originalId: extra.id,
+          },
+          abcParty,
+        ),
+      );
+      const excess = await create(
+        adjustment('CREDIT', 'SUP-CREDIT-3500', '3500'),
+        409,
+      );
+      expect(excess.error.message).toContain('available debit notes');
+      await review(reversal);
+      await ledger(await postRecord(reversal));
+      expect(Number((await balance()).difference)).toBe(0);
       const mixed = await approve(
         doc(
           'CREDIT',

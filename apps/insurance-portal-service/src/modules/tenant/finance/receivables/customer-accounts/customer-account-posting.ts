@@ -6,6 +6,31 @@ import type { InvoiceBalanceService } from '../outstanding-balances/invoice-bala
 import { conflict, document, type ArDocument } from './customer-accounts.types';
 const dec = DecimalUtil.value.bind(DecimalUtil);
 
+// A credit or a debit reversal reduces the invoiced value on its date and every
+// later date. Payments and applications affect only the open balance.
+async function noteCapacity(m: EntityManager, invoice: string, date: string) {
+  const [row] = await m.query(
+    `WITH adjustments AS (
+      SELECT d.effective_date AS effective_on,v.amount,coalesce(o.kind,d.kind)='WRITE_OFF' AS loss
+      FROM finance_ar_movements v JOIN finance_ar_documents d ON d.id=v.document_id
+      LEFT JOIN finance_ar_documents o ON d.kind='REVERSAL' AND o.id=d.related_id
+      WHERE v.invoice_id=$1 AND d.state='POSTED' AND coalesce(o.kind,d.kind) IN ('DEBIT_NOTE','CREDIT_NOTE','WRITE_OFF')
+      UNION ALL SELECT j.accounting_date,CASE p.source_type WHEN 'INVOICE_WRITE_OFF' THEN -w.amount ELSE w.amount END,true
+      FROM finance_gl_writeoffs w JOIN finance_operating_postings p ON p.source_id=w.id
+        AND p.source_type IN ('INVOICE_WRITE_OFF','INVOICE_WRITE_OFF_REVERSAL')
+      JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id AND j.mode='LIVE' WHERE w.invoice_id=$1
+    ), days AS (
+      SELECT greatest(effective_on,$2::date) AS effective_on,amount FROM adjustments UNION ALL SELECT $2::date,0
+    ), balances AS (
+      SELECT sum(sum(amount)) OVER (ORDER BY effective_on) adjustment FROM days GROUP BY effective_on
+    )
+    SELECT i.total_amount-i.written_off_amount-coalesce((SELECT sum(amount) FROM adjustments WHERE loss),0)
+      +(SELECT min(adjustment) FROM balances) capacity FROM invoices i WHERE i.id=$1`,
+    [invoice, date],
+  );
+  return dec(row.capacity);
+}
+
 export async function checkFunds(m: EntityManager, r: ArDocument) {
   const amount = dec(r.amount),
     k = r.kind;
@@ -31,18 +56,7 @@ export async function checkFunds(m: EntityManager, r: ArDocument) {
       conflict('The receipt no longer has enough unreserved cash.');
   }
   if (k === 'CREDIT_NOTE' && !r.data.billingSourceId) {
-    const [prior] = await m.query(
-      `SELECT coalesce(sum(CASE d.kind WHEN 'DEBIT_NOTE' THEN d.amount ELSE -d.amount END),0) adjusted FROM finance_ar_documents d
-      WHERE d.invoice_id=$1 AND d.id<>$2 AND d.kind IN ('DEBIT_NOTE','CREDIT_NOTE') AND NOT (d.data ? 'billingSourceId') AND d.state='POSTED'
-      AND NOT EXISTS(SELECT 1 FROM finance_ar_documents x WHERE x.related_id=d.id AND x.kind='REVERSAL' AND x.state='POSTED')`,
-      [r.invoice_id, r.id],
-    );
-    if (
-      dec(i.total_amount)
-        .plus(prior.adjusted)
-        .minus(i.written_off_amount)
-        .lt(amount)
-    )
+    if ((await noteCapacity(m, i.id, r.effective_date)).lt(amount))
       conflict(
         'Total credits exceed the invoiced amount and posted debit notes.',
       );
@@ -79,6 +93,12 @@ export async function checkFunds(m: EntityManager, r: ArDocument) {
         'SELECT paid_amount+written_off_amount-total_amount-ar_adjustment available FROM invoices WHERE id=$1 FOR UPDATE',
         [src.invoice_id],
       );
+      if (
+        (await noteCapacity(m, src.invoice_id, r.effective_date)).isNegative()
+      )
+        conflict(
+          'Correct the excess credit on the original invoice before using it.',
+        );
       const [other] = await m.query(
         `SELECT coalesce(sum(d.amount),0) reserved FROM finance_ar_documents d JOIN finance_ar_documents n ON d.related_id=n.id
         WHERE n.invoice_id=$1 AND d.kind IN ('CREDIT_APPLICATION','CREDIT_REFUND') AND d.state='APPROVED' AND d.id<>$2`,
@@ -92,6 +112,12 @@ export async function checkFunds(m: EntityManager, r: ArDocument) {
   }
   if (k === 'REVERSAL') {
     const original = await document(m, r.book_id, r.related_id);
+    if (
+      original.kind === 'DEBIT_NOTE' &&
+      !original.data.billingSourceId &&
+      (await noteCapacity(m, i.id, r.effective_date)).lt(amount)
+    )
+      conflict('Reverse the credit that depends on this debit note first.');
     if (original.kind === 'ADVANCE_RELEASE') {
       const [cash] = await m.query(
         'SELECT finance_ar_free_cash(id,NULL) available FROM receipts WHERE id=$1 FOR UPDATE',
@@ -108,8 +134,13 @@ export async function checkFunds(m: EntityManager, r: ArDocument) {
     }
     if (original.data.target) {
       const [later] = await m.query(
-        "SELECT id FROM finance_ar_documents WHERE invoice_id=$1 AND state='POSTED' AND id<>$2 AND data ? 'target' AND sequence>$3 AND kind<>'REVERSAL' AND NOT EXISTS(SELECT 1 FROM finance_ar_documents x WHERE x.related_id=finance_ar_documents.id AND x.kind='REVERSAL' AND x.state='POSTED')",
-        [original.invoice_id, original.id, original.sequence],
+        `SELECT d.id FROM finance_ar_documents d JOIN finance_foundation_journals j ON j.id=d.journal_id
+         JOIN finance_foundation_journals original ON original.id=$2
+         WHERE d.invoice_id=$1 AND d.state='POSTED' AND d.data ? 'target' AND d.kind<>'REVERSAL'
+           AND (j.accounting_date,j.sequence)>(original.accounting_date,original.sequence)
+           AND NOT EXISTS(SELECT 1 FROM finance_ar_documents x WHERE x.related_id=d.id
+             AND x.kind='REVERSAL' AND x.state='POSTED' AND x.effective_date<=$3)`,
+        [original.invoice_id, original.journal_id, r.effective_date],
       );
       if (later)
         conflict('Reverse later loss assessments and write-offs first.');

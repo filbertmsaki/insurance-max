@@ -216,6 +216,49 @@ it('submits a settled lease handover with the title evidence', async () => {
     ),
   );
 });
+it('accepts an owned opening life and distinguishes single and separate branch clearing', async () => {
+  mount(true);
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+  fireEvent.click(await screen.findByRole('button', { name: 'New document' }));
+  const operation = screen.getByLabelText('Operation');
+  fireEvent.change(operation, { target: { value: 'CATEGORY' } });
+  const clearing = screen.getByLabelText('Inter-branch clearing');
+  fireEvent.change(clearing, { target: { value: 'SEPARATE' } });
+  expect(screen.getByLabelText('Inter-branch due to')).toBeInTheDocument();
+  fireEvent.change(clearing, { target: { value: 'SINGLE' } });
+  expect(screen.queryByLabelText('Inter-branch due to')).toBeNull();
+  expect(
+    screen.getByLabelText('Inter-branch clearing account'),
+  ).toBeInTheDocument();
+  fireEvent.change(operation, { target: { value: 'OPENING' } });
+  fireEvent.change(screen.getByLabelText('New asset code'), {
+    target: { value: 'OWN-1' },
+  });
+  fireEvent.change(screen.getByLabelText('Source reference'), {
+    target: { value: 'Opening register' },
+  });
+  fireEvent.change(screen.getByLabelText(/Original useful life/), {
+    target: { value: '120' },
+  });
+  fireEvent.change(screen.getByLabelText('Supporting document version'), {
+    target: { value: evidence.id },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Submit for independent review' }),
+  );
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/fixed-assets',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          kind: 'OPENING',
+          life: 120,
+          code: 'OWN-1',
+        }),
+      }),
+    ),
+  );
+});
 it('submits a scoped group with linked evidence for independent review', async () => {
   mount(true);
   const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });

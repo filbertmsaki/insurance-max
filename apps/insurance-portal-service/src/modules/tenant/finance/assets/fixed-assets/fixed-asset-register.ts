@@ -115,6 +115,17 @@ export async function masterPlan(
   ]);
   const accounts = new Set<string>(),
     pinned: Roles = {};
+  const { branchDueFrom, branchDueTo } = v.roles ?? {};
+  const clearing =
+    v.branchClearing ?? (branchDueFrom || branchDueTo ? 'SEPARATE' : 'NONE');
+  if (
+    !['NONE', 'SINGLE', 'SEPARATE'].includes(clearing) ||
+    Boolean(branchDueFrom) !== (clearing !== 'NONE') ||
+    Boolean(branchDueTo) !== (clearing === 'SEPARATE')
+  )
+    invalid(
+      'Choose separate due-from and due-to accounts, a single clearing account, or no inter-branch clearing.',
+    );
   for (const key of Object.keys(roleTypes) as (keyof Roles)[]) {
     if (!needed.has(key) && !v.roles?.[key]) continue;
     const role = chart.roles.find((r) => r.code === v.roles?.[key]);
@@ -137,7 +148,13 @@ export async function masterPlan(
   return {
     name,
     group: code(v.group),
-    policy: { ...terms, model: v.model!, roles, accounts: pinned },
+    policy: {
+      ...terms,
+      model: v.model!,
+      roles,
+      accounts: pinned,
+      ...(v.branchClearing && { branchClearing: v.branchClearing }),
+    },
   };
 }
 export async function dimensions(
@@ -269,8 +286,11 @@ export async function opening(
   const inService = day(v.inService);
   if (inService > v.date)
     invalid('In-service date cannot follow the opening date.');
-  if ((v.payments || v.leaseMonths) && v.life !== undefined)
-    a.policy.life = months(v.life);
+  if (v.life !== undefined) {
+    if (a.policy.method === 'NONE' && v.life !== 0)
+      invalid('A non-depreciating asset has no useful life for depreciation.');
+    if (a.policy.method !== 'NONE') a.policy.life = months(v.life);
+  }
   a.acquired = inService;
   a.cost = value(v.amount, scale, true).toFixed();
   a.sourceCost = a.cost;

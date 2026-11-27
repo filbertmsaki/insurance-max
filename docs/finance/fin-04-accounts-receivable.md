@@ -26,6 +26,12 @@ The invoice total plus the declared remainder must reconcile to the outstanding 
 
 ## Daily use
 
+Reverse a dependent credit note before reversing the debit note that supported it. If an older invoice has excess credit from a debit reversal, correct the credit note before applying or refunding the balance. The check covers the correction date and each later date with posted movements.
+
+Prepare write-offs against the invoice exposure and allowance on the effective date. If a later assessment already posted, correct it through the reversal workflow on its original date in an open period before posting the earlier write-off and reassessing the later allowance.
+
+A receipt, write-off or reversal that changes the payment status of an issued invoice uses the movement’s accounting period. Restoring an outstanding balance preserves the original invoice date, payment terms and due date. Migration `1800000000000-FinanceInvoiceBalancePeriods` applies this FIN-01 check to existing books.
+
 - The invoice list and invoice detail show the percentage paid and outstanding relative to the original invoice amount. For example, receiving TZS 10,000,000 against TZS 15,000,000 shows 66.67% collected and 33.33% outstanding. Adjustments can also settle an invoice.
 - The register shows the receipt’s payer and the invoice’s debtor separately. A posted advance protects that cash until a reviewed application or release. An invoice-linked refund returns an allocated collection and reopens the corresponding amount. A refund of unapplied cash consumes the remaining receipt balance.
 - **Documents** shows the source, evidence, accounting lines and decision. A preparer submits an approved financial document for posting. **GL approvals** shows the accounting decision. A source-linked reversal records the correction and preserves the original journal. Reverse dependent applications before reversing their source.

@@ -41,6 +41,42 @@ import {
   openingForCorrection,
 } from './customer-opening-items';
 
+async function invoiceLossAt(
+  m: EntityManager,
+  b: ActivePostingBook,
+  invoiceId: string,
+  date: string,
+) {
+  const [row] = await m.query(
+    `SELECT greatest(coalesce((SELECT sum(a.invoice_delta) FROM finance_ar_activity($1,$2) a
+        WHERE a.invoice_id=i.id AND a.day<=$3),0),0) exposure,$3::date-i.due_date overdue,
+      loss.allowance,loss.later FROM invoices i
+      CROSS JOIN LATERAL (
+        SELECT coalesce(sum((d.data->>'target')::numeric) FILTER (WHERE d.effective_date<=$3),0) allowance,
+          bool_or(d.effective_date>$3) later FROM finance_ar_documents d
+        WHERE d.invoice_id=i.id AND d.state='POSTED' AND d.data ? 'target'
+          AND NOT EXISTS (SELECT 1 FROM finance_ar_documents x WHERE x.state='POSTED'
+            AND x.effective_date=d.effective_date AND ((x.kind='REVERSAL' AND x.related_id=d.id)
+              OR (d.kind='REVERSAL' AND x.id=d.related_id)))
+      ) loss WHERE i.id=$4`,
+    [b.company_id, b.timezone, date, invoiceId],
+  );
+  if (row.later)
+    conflict(
+      'Use a date on or after the latest posted loss movement or reverse the later decisions on their effective dates first.',
+    );
+  const allowance = DecimalUtil.value(row.allowance);
+  if (allowance.isNegative())
+    conflict(
+      'Correct the negative allowance recorded for this invoice before posting another loss movement.',
+    );
+  return {
+    exposure: DecimalUtil.value(row.exposure),
+    overdue: row.overdue,
+    allowance,
+  };
+}
+
 export async function prepareAr(
   m: EntityManager,
   b: ActivePostingBook,
@@ -463,15 +499,17 @@ export async function prepareAr(
       const i = await invoice(v.invoiceId);
       if (i.invoice_type === 'PREMIUM' && usesInsuranceMeasurement(b))
         conflict('Premium derecognition requires an insurance measurement.');
-      if (DecimalUtil.value(i.balance_amount).lt(amount))
-        conflict('Write-off exceeds the remaining invoice balance.');
-      const [loss] = await m.query(
-        "SELECT coalesce(sum((data->>'target')::numeric),0) balance FROM finance_ar_documents WHERE invoice_id=$1 AND state='POSTED'",
-        [i.id],
-      );
-      const covered = DecimalUtil.value(loss.balance).gt(amount)
+      const loss = await invoiceLossAt(m, b, i.id, date);
+      if (
+        DecimalUtil.value(i.balance_amount).lt(amount) ||
+        loss.exposure.lt(amount)
+      )
+        conflict(
+          'Write-off exceeds the invoice balance available on its effective date.',
+        );
+      const covered = loss.allowance.gt(amount)
         ? DecimalUtil.value(amount)
-        : DecimalUtil.value(loss.balance);
+        : loss.allowance;
       const residual = DecimalUtil.value(amount).minus(covered);
       if (covered.gt(0)) line('allowance', covered.toFixed(), '0');
       if (residual.gt(0)) line('expense', residual.toFixed(), '0');
@@ -483,32 +521,15 @@ export async function prepareAr(
         conflict(
           'This premium belongs to the insurance measurement population.',
         );
-      const [loss] = await m.query(
-        `SELECT greatest(coalesce(sum(a.invoice_delta),0),0) exposure,
-        ($3::date-i.due_date) overdue FROM invoices i LEFT JOIN finance_ar_activity($1,$2) a ON a.invoice_id=i.id AND a.day<=$3
-        WHERE i.id=$4 GROUP BY i.id`,
-        [b.company_id, b.timezone, date, i.id],
-      );
+      const loss = await invoiceLossAt(m, b, i.id, date);
       if (loss.overdue === null)
         conflict('Set the invoice due date before evaluating impairment.');
       const band = [0, 30, 60, 90].filter((n) => loss.overdue > n).length;
-      const target = DecimalUtil.value(loss.exposure)
+      const target = loss.exposure
         .mul(p.data.lossRates![band])
         .div(100)
         .toDecimalPlaces(scale);
-      const [later] = await m.query(
-        "SELECT id FROM finance_ar_documents WHERE invoice_id=$1 AND state='POSTED' AND effective_date>$2 AND data ? 'target'",
-        [i.id, date],
-      );
-      if (later)
-        conflict(
-          'Use an assessment date on or after the latest posted loss movement.',
-        );
-      const [previous] = await m.query(
-        "SELECT coalesce(sum((d.data->>'target')::numeric),0) balance FROM finance_ar_documents d WHERE invoice_id=$1 AND state='POSTED'",
-        [i.id],
-      );
-      const delta = target.minus(previous.balance);
+      const delta = target.minus(loss.allowance);
       data.target = delta.toFixed();
       amount = delta.abs().toFixed();
       if (delta.isZero())

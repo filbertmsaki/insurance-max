@@ -36,6 +36,8 @@ Voucher components use origin `FIN02_GL`, Finance ownership and a null source ev
 
 ## Operating the book
 
+When posting a supplier credit, credit application, refund or debit-note reversal, the ledger rechecks the approved payable document against the underlying bill. A pending debit reversal already reduces the amount available for credit. If posting is blocked, review the related notes in Accounts Payable and correct the dependent credit before retrying.
+
 1. Save a voucher draft, select the approved account roles, enter a branch on each line and choose a cost centre for operating expenses. Attach the source document version. Submit the voucher and record the required independent decisions under **Approvals**.
 2. Locate the configured journal number under **Ledger activity**. Use **Corrections** for a linked reversal and identify the reversed original on any replacement voucher. After rejection, select the same original, enter a new external reference and submit the revised date, reason and supporting evidence. The new attempt has its own approval history. Use the native source workflow to correct a receipt, invoice or payout.
    For a year-end entry, select the reviewed **Adjustment period** on the voucher or reversal and attach supporting evidence. The journal retains that period through approval. For a previously activated book, a release officer can prepare the existing adjustment period under **Book rollout**.

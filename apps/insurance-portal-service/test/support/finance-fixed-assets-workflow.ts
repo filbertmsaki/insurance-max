@@ -152,6 +152,17 @@ export async function exerciseFixedAssets(f: {
     roles,
   });
   if (f.insurer) {
+    const inService = shiftMonth(start, -60);
+    const expired = input('OPENING', 'EXPIRED', {
+      name: 'Existing equipment',
+      category: 'OPEN-PC',
+      location: 'HQ',
+      dimensions: dim,
+      amount: '800',
+      accumulated: '160',
+      inService,
+    });
+    await post(maker, root, { input: expired }, 409);
     const opening = await finish('OPENING', 'OLD-PC', {
       name: 'Opening asset',
       category: 'OPEN-PC',
@@ -159,9 +170,21 @@ export async function exerciseFixedAssets(f: {
       dimensions: dim,
       amount: '800',
       accumulated: '160',
-      inService: start,
+      inService,
+      life: 120,
     });
     expect(opening.journal_id).toBeNull();
+    expect(opening.plan.asset.policy.life).toBe(120);
+    expect(opening.plan.asset.end).toBe(shiftMonth(inService, 120));
+    const register = await call(checker, root + '?' + q);
+    const next = register.depreciation.find(
+      (x: { code: string }) => x.code === 'OLD-PC',
+    );
+    expect(Number(next.amount)).toBeGreaterThan(0);
+    const charge = await finish('DEPRECIATE', 'OLD-PC', { date: next.date });
+    expect(Number(charge.plan.asset.accumulated)).toBeCloseTo(
+      160 + Number(next.amount),
+    );
     expect(
       Number(opening.plan.asset.cost) - Number(opening.plan.asset.accumulated),
     ).toBe(640);
@@ -752,6 +775,45 @@ export async function exerciseFixedAssets(f: {
       await branchBalances(cross.journal_id),
     );
     await finish('CAPITALIZE', 'BRANCH-CAP', { date: f.today, residual: '0' });
+    const singleRoles = { ...roles, branchDueTo: undefined };
+    const category = {
+      name: 'Equipment with one clearing account',
+      group: 'IT',
+      method: 'STRAIGHT_LINE',
+      life: 48,
+      model: 'REVALUATION',
+      roles: singleRoles,
+      date: f.today,
+    };
+    await post(
+      maker,
+      root,
+      { input: input('CATEGORY', 'BRANCH-SINGLE', category) },
+      400,
+    );
+    await finish('CATEGORY', 'BRANCH-SINGLE', {
+      ...category,
+      branchClearing: 'SINGLE',
+    });
+    await finish('RECLASSIFY', 'BRANCH-CAP', {
+      date: f.today,
+      category: 'BRANCH-SINGLE',
+      note: 'Approved single clearing account',
+    });
+    const moved = await finish('TRANSFER', 'BRANCH-CAP', {
+      date: f.today,
+      location: 'HQ',
+      dimensions: dim,
+    });
+    expect(await branchBalances(moved.journal_id)).toEqual(balanced);
+    const clearing = await db.query(
+      "SELECT dimensions->>'BRANCH' branch,functional_debit::float8 debit,functional_credit::float8 credit FROM finance_foundation_lines WHERE journal_id=$1 AND role_code=$2 ORDER BY debit DESC",
+      [moved.journal_id, roles.branchDueFrom],
+    );
+    expect(clearing).toEqual([
+      { branch: f.otherBranch, debit: 120000, credit: 0 },
+      { branch: f.branch, debit: 0, credit: 120000 },
+    ]);
 
     for (const [adjustment, sourceLine] of [
       ['1000', 'L1'],

@@ -46,6 +46,8 @@ The payment instructions include the stable voucher ID and reference. Submit ins
 
 The signer uses the existing `FINANCE_BANK_OBSERVATION_KEYS` deployment configuration and the `settlementAttestation` contract. The AP source types are `AP_PAYMENT`, `AP_IMPREST_RETURN`, `AP_SUPPLIER_REFUND` and `AP_REVERSAL`. The outgoing beneficiary ID identifies the approved bank-account version. An imprest cash return uses the employee ID. Observations bind the company, primary book, voucher, funding account, currency, net amount, bank reference and settlement time. The service verifies the signature before recording settlement.
 
+A supplier debit note increases the amount that can be credited once it posts. A pending reversal reserves that amount immediately. Withdraw the reversal or correct the dependent credit before submitting an adjustment that exceeds the original bill and remaining debit notes.
+
 ## Bring existing supplier balances into AP
 
 1. Select **Import outstanding supplier invoices**. Choose the cutover date, payable control account and supporting evidence. Use the accounting book's functional currency for the import total.

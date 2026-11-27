@@ -20,7 +20,8 @@ import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import { financeConfigurationHash as hash } from '../../foundation/finance-configuration/finance-configuration.types';
 import {
   depreciation,
-  clearFundingBranches,
+  clearBranches,
+  hasExpiredDepreciableBalance,
   hasExpiredLeaseBalance,
   entry,
   impair,
@@ -73,7 +74,7 @@ function capitalizeFunding(
   if (sourceRole === r.asset && hash(source) === hash(destination)) return;
   entry(lines, r.asset, amount, 0, destination);
   entry(lines, sourceRole, 0, amount, source);
-  clearFundingBranches(a, source, amount, lines);
+  clearBranches(a.policy, source, destination, amount, lines);
 }
 
 export async function prepareAsset(
@@ -174,9 +175,9 @@ export async function prepareAsset(
     plan.amount = a.sourceCost;
   } else if (k === 'OPENING') {
     await opening(m, b, v, a, plan, scale);
-    if (hasExpiredLeaseBalance(a))
+    if (hasExpiredDepreciableBalance(a))
       conflict(
-        'Reconcile the opening ROU balance and its remaining useful life before import.',
+        'Reconcile the opening carrying amount, residual value and useful life before import.',
       );
   } else if (k === 'CAPITALIZE') {
     if (a.status !== 'ACQUIRED')
@@ -328,7 +329,8 @@ export async function prepareAsset(
           k === 'RECLASSIFY' &&
           code(v.category) === a.category &&
           hash(a.policy.accounts) === hash(next.accounts) &&
-          hash(r) === hash(next.roles)
+          hash(r) === hash(next.roles) &&
+          a.policy.branchClearing === next.branchClearing
         )
           conflict('Select a different category or approved account mapping.');
         for (const [role, n, debit] of [
@@ -345,6 +347,8 @@ export async function prepareAsset(
         a.category = code(v.category);
         a.group = dest.group!;
         a.policy = { ...a.policy, roles: next.roles, accounts: next.accounts };
+        if (next.branchClearing) a.policy.branchClearing = next.branchClearing;
+        else delete a.policy.branchClearing;
         plan.amount = a.cost;
       } else if (k === 'TRANSFER') {
         const loc = await master(m, b, 'LOCATION', v.location, v.date),
@@ -364,16 +368,7 @@ export async function prepareAsset(
               (sum, [, n, debit]) => (debit ? sum.plus(n) : sum.minus(n)),
               new Decimal(0),
             );
-            const from = position.isNegative() ? newDim : dim,
-              to = position.isNegative() ? dim : newDim;
-            entry(lines, r.branchDueFrom, position.abs(), 0, from);
-            entry(
-              lines,
-              r.branchDueTo ?? r.branchDueFrom,
-              0,
-              position.abs(),
-              to,
-            );
+            clearBranches(a.policy, dim, newDim, position, lines);
           }
           for (const [role, n, dr] of balances) {
             entry(lines, r[role], dr ? n : 0, dr ? 0 : n, newDim);
@@ -447,7 +442,7 @@ export async function prepareAsset(
             'credit',
           );
           entry(lines, r.clearing, proceeds, 0, src.dimensions);
-          clearFundingBranches(a, src.dimensions, proceeds.neg(), lines);
+          clearBranches(a.policy, src.dimensions, dim, proceeds.neg(), lines);
         }
         terminal(a, proceeds, k === 'WRITE_OFF', lines);
       }

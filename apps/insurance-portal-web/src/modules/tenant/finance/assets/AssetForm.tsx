@@ -78,6 +78,14 @@ export function AssetForm({
       kind === 'LEASE_PAYMENT' ||
       kind === 'LEASE_EXPENSE';
   const current = w.assets.find((a) => a.code === fields.code);
+  const clearing = fields.branchClearing || 'NONE';
+  const categoryRoles = Object.entries(requirements).filter(([key]) =>
+    key === 'branchDueFrom'
+      ? clearing !== 'NONE'
+      : key === 'branchDueTo'
+        ? clearing === 'SEPARATE'
+        : true,
+  );
   const submit = async () => {
     err('');
     if (!evidence || !fields.code || !fields.reference?.trim()) {
@@ -94,7 +102,14 @@ export function AssetForm({
       if (fields[n]) input[n] = Number(fields[n]);
     if (fields.payments?.trim())
       input.payments = fields.payments.split(/[\s,]+/).filter(Boolean);
-    if (kind === 'CATEGORY') input.roles = roles;
+    if (kind === 'CATEGORY') {
+      input.branchClearing = clearing;
+      input.roles = Object.fromEntries(
+        categoryRoles
+          .filter(([key]) => roles[key])
+          .map(([key]) => [key, roles[key]]),
+      );
+    }
     if (kind === 'LEASE_END' && fields.returnedToLessor)
       input.returnedToLessor = fields.returnedToLessor === 'YES';
     if (kind === 'LEASE_REMEASURE')
@@ -343,13 +358,12 @@ export function AssetForm({
             {field('openingLoss', 'Impairment previously charged to profit')}
             {field('unimpairedValue', 'Unimpaired carrying amount')}
             {field('payments', 'Remaining lease payments, if leased')}
-            {fields.payments?.trim() &&
-              field(
-                'life',
-                'Original economic useful life in months (if different from category)',
-                undefined,
-                'number',
-              )}
+            {field(
+              'life',
+              'Original useful life in months (if different from category)',
+              undefined,
+              'number',
+            )}
             {field(
               'firstDue',
               'First remaining rental date',
@@ -453,10 +467,27 @@ export function AssetForm({
       {kind === 'CATEGORY' && (
         <fieldset className="grid gap-3 md:grid-cols-3">
           <legend className="font-medium">Posting accounts</legend>
-          {Object.entries(requirements).map(([k, r]) => (
+          <Field
+            label="Inter-branch clearing"
+            value={clearing}
+            change={(v) => change('branchClearing', v)}
+            options={[
+              { value: 'NONE', label: 'No inter-branch clearing' },
+              {
+                value: 'SEPARATE',
+                label: 'Separate due-from and due-to accounts',
+              },
+              { value: 'SINGLE', label: 'Single clearing account' },
+            ]}
+          />
+          {categoryRoles.map(([k, r]) => (
             <Field
               key={k}
-              label={r.title}
+              label={
+                k === 'branchDueFrom' && clearing === 'SINGLE'
+                  ? 'Inter-branch clearing account'
+                  : r.title
+              }
               value={roles[k] ?? ''}
               change={(v) => setRoles((x) => ({ ...x, [k]: v }))}
               options={w.roles

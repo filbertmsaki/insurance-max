@@ -72,18 +72,31 @@ export function entry(
   lines.push({ role, debit: dr.toFixed(), credit: cr.toFixed(), dimensions });
 }
 // A positive amount is funded by the source branch. Proceeds flow in the opposite direction.
-export function clearFundingBranches(
-  a: Asset,
+export function clearBranches(
+  policy: Policy,
   source: Dimensions,
+  destination: Dimensions,
   amount: Decimal.Value,
   lines: VoucherLine[],
 ) {
-  if (source.BRANCH === a.dimensions.BRANCH) return;
+  if (source.BRANCH === destination.BRANCH) return;
   const n = new Decimal(amount);
-  const lender = n.isNegative() ? a.dimensions : source;
-  const borrower = n.isNegative() ? source : a.dimensions;
-  entry(lines, a.policy.roles.branchDueFrom, n.abs(), 0, lender);
-  entry(lines, a.policy.roles.branchDueTo, 0, n.abs(), borrower);
+  if (n.isZero()) return;
+  const { branchDueFrom, branchDueTo } = policy.roles;
+  const credit =
+    policy.branchClearing === 'SINGLE' ? branchDueFrom : branchDueTo;
+  if (policy.branchClearing === 'NONE' || !branchDueFrom || !credit)
+    conflict(
+      'Approve the inter-branch clearing accounts and reclassify the asset before posting between branches.',
+    );
+  entry(
+    lines,
+    branchDueFrom,
+    n.abs(),
+    0,
+    n.isNegative() ? destination : source,
+  );
+  entry(lines, credit, 0, n.abs(), n.isNegative() ? source : destination);
 }
 
 function charge(

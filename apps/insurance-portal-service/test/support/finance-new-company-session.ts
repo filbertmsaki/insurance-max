@@ -437,21 +437,7 @@ async function provisionCompany(
     );
     tokens.set(user, await companySession(user, roleName));
   }
-  const documentId = randomUUID(),
-    id = randomUUID(),
-    hash = 'a'.repeat(64);
-  await db.query(
-    "INSERT INTO documents(id,company_id,owner_type,owner_id,storage_key,checksum,file_name,status) VALUES($1,$2,'COMPANY',$2,'uat/document',$3,'evidence.pdf','AVAILABLE')",
-    [documentId, company, hash],
-  );
-  await db.query(
-    "INSERT INTO document_versions(id,company_id,document_id,version_number,status,storage_provider,storage_key,safe_file_name,detected_mime_type,file_size,sha256_hash,uploaded_at) VALUES($1,$2,$3,1,'AVAILABLE','TEST','uat/document','evidence.pdf','application/pdf',5,$4,now())",
-    [id, company, documentId, hash],
-  );
-  await db.query('UPDATE documents SET current_version_id=$2 WHERE id=$1', [
-    documentId,
-    id,
-  ]);
+  const document = await companyEvidence(db, company, 'a'.repeat(64));
   const call = (user: string, path: string, body?: unknown, status?: number) =>
     request(
       tokens.get(user)!,
@@ -471,6 +457,28 @@ async function provisionCompany(
     deputy,
     today,
     until,
-    document: { documentId, id, hash },
+    document,
   };
+}
+
+export async function companyEvidence(
+  db: DataSource,
+  company: string,
+  hash: string,
+) {
+  const documentId = randomUUID(),
+    id = randomUUID();
+  await db.query(
+    "INSERT INTO documents(id,company_id,owner_type,owner_id,storage_key,checksum,file_name,status) VALUES($1,$2,'COMPANY',$2,$4,$3,'evidence.pdf','AVAILABLE')",
+    [documentId, company, hash, 'uat/' + id],
+  );
+  await db.query(
+    "INSERT INTO document_versions(id,company_id,document_id,version_number,status,storage_provider,storage_key,safe_file_name,detected_mime_type,file_size,sha256_hash,uploaded_at) VALUES($1,$2,$3,1,'AVAILABLE','TEST',$5,'evidence.pdf','application/pdf',5,$4,now())",
+    [id, company, documentId, hash, 'uat/' + id],
+  );
+  await db.query('UPDATE documents SET current_version_id=$2 WHERE id=$1', [
+    documentId,
+    id,
+  ]);
+  return { documentId, id, hash };
 }

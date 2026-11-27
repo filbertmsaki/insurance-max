@@ -5,7 +5,7 @@ import type { ActivePostingBook } from '../../accounting/general-ledger/finance-
 import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import {
   entry,
-  clearFundingBranches,
+  clearBranches,
   impair,
   hasExpiredLeaseBalance,
   terminal,
@@ -221,7 +221,7 @@ export async function closeLease(
   if (fee.gt(0)) {
     const src = await funding(m, b, v, p, [roles.clearing], fee, 'debit');
     entry(p.lines, roles.clearing, 0, fee, src.dimensions);
-    clearFundingBranches(a, src.dimensions, fee, p.lines);
+    clearBranches(a.policy, src.dimensions, dim, fee, p.lines);
   }
   l.liability = '0';
   terminal(a, waived.minus(fee), false, p.lines);
@@ -277,7 +277,7 @@ export async function commenceLease(
       Decimal.max(0, adj),
       source.dimensions,
     );
-    clearFundingBranches(a, source.dimensions, adj, lines);
+    clearBranches(a.policy, source.dimensions, dim, adj, lines);
   }
   a.cost = pv.plus(adj).toFixed();
   if (new Decimal(a.cost).lte(0))
@@ -436,7 +436,7 @@ export async function serviceLease(
       ) {
         entry(lines, r.liability, n, 0, dim);
         entry(lines, source.role, 0, n, source.dimensions);
-        clearFundingBranches(a, source.dimensions, n, lines);
+        clearBranches(a.policy, source.dimensions, dim, n, lines);
       }
       l.liability = new Decimal(l.liability).minus(n).toFixed();
       due.paid = new Decimal(l.paid).plus(n).toFixed();

@@ -6,15 +6,17 @@ import {
 } from './fixed-asset-leases';
 import type { EntityManager } from 'typeorm';
 import type { ActivePostingBook } from '../../accounting/general-ledger/finance-book-request';
-import { net, type Input, type Plan } from './fixed-asset.types';
+import { net, type Doc, type Input, type Plan } from './fixed-asset.types';
 import {
   assetEstimateReview,
   leaseReview,
   nextDepreciation,
+  ownedAssetReview,
 } from './fixed-asset-reports';
 import Decimal from 'decimal.js';
 import type { Asset } from './fixed-asset.types';
 import {
+  clearBranches,
   depreciation,
   impair,
   leaseSchedule,
@@ -67,6 +69,49 @@ const asset = (cost = '1200000', scaleStart = '2024-01-01'): Asset => ({
   surplus: '0',
 });
 describe('Fixed asset book measurement', () => {
+  it('requires an approved clearing choice before a legacy one-sided mapping can post between branches', () => {
+    const a = asset();
+    a.policy.roles.branchDueFrom = 'CLEAR';
+    const coast = { BRANCH: 'COAST' };
+    const lines: VoucherLine[] = [];
+    expect(() =>
+      clearBranches(a.policy, a.dimensions, coast, 100, lines),
+    ).toThrow(/inter-branch clearing/);
+    expect(lines).toEqual([]);
+    a.policy.branchClearing = 'SINGLE';
+    clearBranches(a.policy, a.dimensions, coast, -100, lines);
+    expect(lines).toEqual([
+      { role: 'CLEAR', debit: '100', credit: '0', dimensions: coast },
+      { role: 'CLEAR', debit: '0', credit: '100', dimensions: a.dimensions },
+    ]);
+  });
+  it('flags an ignored original life until a reviewed and unreversed estimate supersedes it', () => {
+    const a = asset(),
+      date = a.inService!;
+    const opening = {
+      id: 'old',
+      code: a.code,
+      kind: 'OPENING',
+      state: 'POSTED',
+      effective_date: date,
+      input: { life: 120 },
+      plan: { asset: a },
+    } as Doc;
+    const revision = { ...opening, id: 'estimate', kind: 'ESTIMATE' } as Doc;
+    const reversal = {
+      ...opening,
+      id: 'undo',
+      kind: 'REVERSE',
+      reversal_of: revision.id,
+    } as Doc;
+    expect(ownedAssetReview([a], [opening], date)[0].reasons[0]).toContain(
+      '120 months',
+    );
+    expect(ownedAssetReview([a], [revision, opening], date)).toEqual([]);
+    expect(
+      ownedAssetReview([a], [reversal, revision, opening], date),
+    ).toHaveLength(1);
+  });
   it('posts the laptop charge for each of 48 months, through leap February and with exact final cost', () => {
     const a = asset(),
       lines: VoucherLine[] = [];

@@ -62,11 +62,13 @@ export const roleTypes = {
 };
 export type Roles = Partial<Record<keyof typeof roleTypes, string>>;
 export type Dimensions = Record<string, string>;
+export type BranchClearing = 'NONE' | 'SEPARATE' | 'SINGLE';
 export interface Policy {
   method: 'STRAIGHT_LINE' | 'DECLINING' | 'NONE';
   life: number;
   rate: string;
   model: 'COST' | 'REVALUATION';
+  branchClearing?: BranchClearing;
   roles: Roles;
   accounts: Roles;
 }
@@ -194,6 +196,7 @@ export interface Input {
   dimensions?: Dimensions;
   method?: Policy['method'];
   model?: Policy['model'];
+  branchClearing?: BranchClearing;
   life?: number;
   rate?: string;
   roles?: Roles;

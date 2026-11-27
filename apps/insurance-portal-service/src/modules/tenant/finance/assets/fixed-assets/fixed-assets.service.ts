@@ -22,7 +22,7 @@ import {
   assetRegister,
   classValuations,
   assetReport,
-  assetEstimateReview,
+  ownedAssetReview,
   leaseReview,
   nextDepreciation,
 } from './fixed-asset-reports';
@@ -92,7 +92,7 @@ export class FixedAssetsService {
         documents,
         assets,
         leaseReview: leaseReview(assets),
-        ownedAssetReview: assetEstimateReview(assets.filter((x) => !x.lease)),
+        ownedAssetReview: ownedAssetReview(assets, documents, today),
         valuations: await classValuations(m, b.book_id, today),
         staff,
         evidence,

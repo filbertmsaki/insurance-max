@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { companyEvidence } from './finance-new-company-session';
 import type { DataSource } from 'typeorm';
 import { FinanceReceivableBalanceHistory1799900000000 } from '../../src/database/migrations/1799900000000-FinanceReceivableBalanceHistory';
+import { FinanceInvoiceBalancePeriods1800000000000 } from '../../src/database/migrations/1800000000000-FinanceInvoiceBalancePeriods';
 import { fixtureBank } from './finance-bank-observation-fixture';
 import type { Evidence } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-program';
 
@@ -22,6 +24,8 @@ async function verifyBalanceHistoryUpgrade(
   try {
     // Recreate the preceding schema on this disposable company's posted invoices.
     const migration = new FinanceReceivableBalanceHistory1799900000000();
+    const periodGuard = new FinanceInvoiceBalancePeriods1800000000000();
+    await periodGuard.down(q);
     await q.query('TRUNCATE finance_ar_native_balance_changes');
     await migration.down(q);
     await q.query(
@@ -29,6 +33,7 @@ async function verifyBalanceHistoryUpgrade(
       [invoice],
     );
     await migration.up(q);
+    await periodGuard.up(q);
     const [balances] = await q.query(
       'SELECT sum(delta) FILTER (WHERE effective_on<=$2)::float8 earlier,sum(delta) FILTER (WHERE effective_on<=$3)::float8 present FROM finance_ar_native_balance_changes WHERE invoice_id=$1',
       [invoice, cutoff, today],
@@ -773,6 +778,21 @@ export async function exerciseCustomerAccounts(f: {
     expect((await decide(pendingStatement)).state).toBe('APPROVED');
     await adjustNative(today, 1);
     expect((await usd(today)).balanceExceptions).toEqual([]);
+    const cutoffFence = async (state: 'OPEN' | 'CLOSED') => {
+      const [period] = await db.query(
+        "SELECT id,revision FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND period_kind='REGULAR' AND starts_on<=$2 AND ends_before>$2",
+        [scope.bookId, cutoff],
+      );
+      await post(checker, 'foundation/periods/' + period.id + '/fences', {
+        state,
+        revision: period.revision,
+        evidenceHash: f.document.hash,
+      });
+    };
+    await expect(adjustNative(cutoff, -1)).rejects.toThrow(
+      'An open regular accounting period is required.',
+    );
+    await cutoffFence('OPEN');
     await adjustNative(cutoff, -1);
     const [historical] = (await usd()).balanceExceptions;
     expect([
@@ -781,8 +801,101 @@ export async function exerciseCustomerAccounts(f: {
     ]).toEqual([39, 40]);
     await submit({ ...statement, requestKey: randomUUID() }, 409);
     await adjustNative(cutoff, 1);
+    await cutoffFence('CLOSED');
     expect((await usd()).balanceExceptions).toEqual([]);
     await verifyBalanceHistoryUpgrade(db, ids[0].invoice_id, cutoff, today);
+    const fee = await bill(1000);
+    await ledger((await issue(fee)).journal_candidate_id);
+    const note = { invoiceId: fee.id, customerId: customer, tax: '0' };
+    const debitNote = await finish('DEBIT_NOTE', { ...note, amount: '500' });
+    const reverseDebit = make('REVERSAL', {
+      customerId: customer,
+      relatedId: debitNote.id,
+    });
+    const earlierReversal = await submit(reverseDebit);
+    const creditNote = await finish('CREDIT_NOTE', {
+      ...note,
+      amount: '1500',
+      evidence: await companyEvidence(db, company, 'b'.repeat(64)),
+    });
+    await decide(earlierReversal, checker, 409);
+    const refund = make('CREDIT_REFUND', {
+      customerId: customer,
+      relatedId: creditNote.id,
+      amount: '500',
+    });
+    await submit(refund, 409);
+    const settledFee = await native(fee.id);
+    expect([
+      Number(settledFee.paid_amount),
+      Number(settledFee.balance_amount),
+      settledFee.status,
+    ]).toEqual([0, 0, 'PAID']);
+    await finish('REVERSAL', {
+      customerId: customer,
+      relatedId: creditNote.id,
+    });
+    await decide(earlierReversal);
+    await ledger((await send(earlierReversal)).candidate_id);
+    expect(Number((await native(fee.id)).balance_amount)).toBe(1000);
+
+    const [other] = await db.query(
+      'SELECT invoice_id FROM finance_ar_opening_items WHERE import_id=$1',
+      [firstPart.id],
+    );
+    const lossItem = {
+      customerId: payer,
+      invoiceId: other.invoice_id,
+      currency: 'USD',
+    };
+    const backdated = make('WRITE_OFF', {
+      ...lossItem,
+      amount: '5',
+      date: cutoff,
+    });
+    const priorDraft = await submit(backdated);
+    expect(priorDraft.data.lines[0].role).toBe(setup.data.roles.expense);
+    const assessed = await finish('IMPAIRMENT', lossItem);
+    expect(Number(assessed.amount)).toBe(10);
+    await decide(priorDraft, checker, 409);
+    const earlier = await submit(
+      { ...backdated, requestKey: randomUUID() },
+      409,
+    );
+    expect(earlier.error.message).toContain('latest posted loss movement');
+    const laterPosting = await submit(
+      make('WRITE_OFF', { ...lossItem, amount: '2' }),
+    );
+    const allowed = await finish('WRITE_OFF', { ...lossItem, amount: '5' });
+    const lossLines = await db.query(
+      'SELECT role_code,transaction_debit::float8 debit,transaction_credit::float8 credit FROM finance_foundation_lines WHERE journal_id=$1 ORDER BY line_key',
+      [allowed.journal_id],
+    );
+    expect(lossLines).toEqual([
+      { role_code: setup.data.roles.allowance, debit: 5, credit: 0 },
+      { role_code: setup.data.roles.ar, debit: 0, credit: 5 },
+    ]);
+    await decide(laterPosting);
+    await ledger((await send(laterPosting)).candidate_id);
+    await submit(make('REVERSAL', { ...lossItem, relatedId: allowed.id }), 409);
+    await finish('REVERSAL', { ...lossItem, relatedId: laterPosting.id });
+    await finish('REVERSAL', { ...lossItem, relatedId: allowed.id });
+    await finish('REVERSAL', { ...lossItem, relatedId: assessed.id });
+    const [restoredInvoice] = await db.query(
+      'SELECT status,due_date::text due,balance_amount::float8 balance FROM invoices WHERE id=$1',
+      [other.invoice_id],
+    );
+    expect(restoredInvoice).toEqual({
+      status: 'ISSUED',
+      due: older,
+      balance: 20,
+    });
+    expect((await decide(priorDraft)).data.lines[0].role).toBe(
+      setup.data.roles.expense,
+    );
+    await post(maker, 'customer-accounts/' + priorDraft.id + '/cancel', {
+      reason: 'Reviewed cutover expense allocation',
+    });
     await submit(
       make('OPENING_VOID', {
         currency: 'USD',

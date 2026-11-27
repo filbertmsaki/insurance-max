@@ -8,6 +8,7 @@ import {
   type Context,
 } from './trade-payables.types';
 import { moneyMinor } from '../../accounting/general-ledger/finance-gl-program';
+import { checkBillCredits } from './trade-payables-credit';
 
 export async function prepareReversal(c: Context) {
   const original = await record(c.m, c.b.book_id, c.input.details.originalId);
@@ -42,6 +43,14 @@ export async function prepareReversal(c: Context) {
     [c.b.book_id, original.id],
   );
   if (prior) conflict('A reversal already exists for this document.');
+  if (original.kind === 'DEBIT')
+    await checkBillCredits(
+      c.m,
+      c.b.book_id,
+      original.data.details.itemId,
+      c.input.date,
+      original.amount,
+    );
   const rows = await c.m.query(
     'SELECT v.item_id,v.amount::text,v.withholding::text,i.kind FROM finance_ap_movements v JOIN finance_ap_records i ON i.id=v.item_id WHERE v.book_id=$1 AND v.document_id=$2',
     [c.b.book_id, original.id],
