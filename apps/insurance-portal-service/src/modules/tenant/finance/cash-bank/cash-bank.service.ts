@@ -161,12 +161,12 @@ export class CashBankService {
             [b.book_id],
           ),
           entries: await m.query(
-            `SELECT e.*,e.day::text,a.code,a.currency,x.line_id,t.entry_id IS NOT NULL documented,j.journal_no,op.source_type,op.source_id,op.snapshot->>'apDocumentId' ap_document_id
-          FROM finance_cb_entries e JOIN finance_cb_accounts a ON a.id=e.account_id LEFT JOIN finance_cb_matches x ON x.entry_id=e.id LEFT JOIN finance_cb_timing t ON t.entry_id=e.id LEFT JOIN finance_foundation_journals j ON j.id=e.journal_id LEFT JOIN finance_operating_postings op ON op.candidate_id=j.candidate_id WHERE a.book_id=$1 ORDER BY e.day DESC,e.id`,
+            `SELECT e.*,e.day::text,a.code,a.currency,t.entry_id IS NOT NULL documented,j.journal_no,op.source_type,op.source_id,op.snapshot->>'apDocumentId' ap_document_id
+          FROM finance_cb_entry_clearing e JOIN finance_cb_accounts a ON a.id=e.account_id LEFT JOIN finance_cb_timing t ON t.entry_id=e.id LEFT JOIN finance_foundation_journals j ON j.id=e.journal_id LEFT JOIN finance_operating_postings op ON op.candidate_id=j.candidate_id WHERE a.book_id=$1 ORDER BY e.day DESC,e.id`,
             [b.book_id],
           ),
           lines: await m.query(
-            `SELECT l.*,l.day::text,s.account_id,s.signoff_id,(x.entries)[1] entry_id,cardinality(x.entries) match_count,p.id proof_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_accounts a ON a.id=s.account_id LEFT JOIN LATERAL (SELECT array_agg(mx.entry_id ORDER BY mx.entry_id) entries FROM finance_cb_matches mx WHERE mx.line_id=l.id)x ON true LEFT JOIN finance_cb_ap_proofs p ON p.line_id=l.id AND p.released_id IS NULL WHERE a.book_id=$1 AND s.withdrawn_id IS NULL ORDER BY s.ends DESC,l.ordinal`,
+            `SELECT l.*,l.day::text,s.account_id,s.ends::text statement_end,s.signoff_id,(x.entries)[1] entry_id,cardinality(x.entries) match_count,p.id proof_id FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id JOIN finance_cb_accounts a ON a.id=s.account_id LEFT JOIN LATERAL (SELECT array_agg(mx.entry_id ORDER BY mx.entry_id) entries FROM finance_cb_matches mx WHERE mx.line_id=l.id)x ON true LEFT JOIN finance_cb_ap_proofs p ON p.line_id=l.id AND p.released_id IS NULL WHERE a.book_id=$1 AND s.withdrawn_id IS NULL ORDER BY s.ends DESC,l.ordinal`,
             [b.book_id],
           ),
         };

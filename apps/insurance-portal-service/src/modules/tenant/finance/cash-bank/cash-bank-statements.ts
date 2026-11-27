@@ -361,10 +361,13 @@ export async function reconciliationSummary(c: Context, id: string) {
     conflict('This statement has been withdrawn. Select its replacement.');
   if (s.signoff_id) return s.summary;
   const [t] = await c.m.query(
-    `WITH e AS (SELECT e.*,(EXISTS(SELECT 1 FROM finance_cb_documents off WHERE off.id=e.offset_id AND off.day<=$3) OR EXISTS(SELECT 1 FROM finance_cb_matches x JOIN finance_cb_statement_lines l ON l.id=x.line_id JOIN finance_cb_statements st ON st.id=l.statement_id WHERE x.entry_id=e.id AND st.ends<=$3)) cleared FROM finance_cb_entries e WHERE e.account_id=$1 AND e.day<=$3)
+    `WITH e AS (SELECT e.*,CASE WHEN off.id IS NOT NULL THEN 0 ELSE e.amount-coalesce((
+       SELECT sum(x.amount) FROM finance_cb_matches x JOIN finance_cb_statement_lines l ON l.id=x.line_id
+       JOIN finance_cb_statements st ON st.id=l.statement_id WHERE x.entry_id=e.id AND st.ends<=$3),0) END remaining
+       FROM finance_cb_entries e LEFT JOIN finance_cb_documents off ON off.id=e.offset_id AND off.day<=$3 WHERE e.account_id=$1 AND e.day<=$3)
    SELECT a.opening+coalesce(sum(e.amount) FILTER(WHERE NOT e.cutover),0) cashbook,
-   coalesce(sum(e.amount) FILTER(WHERE NOT e.cleared AND e.amount>0),0) deposits,coalesce(sum(-e.amount) FILTER(WHERE NOT e.cleared AND e.amount<0),0) outstanding,
-   count(e.id) FILTER(WHERE NOT e.cleared AND t.entry_id IS NULL)::int undocumented,
+   coalesce(sum(e.remaining) FILTER(WHERE e.remaining>0),0) deposits,coalesce(sum(-e.remaining) FILTER(WHERE e.remaining<0),0) outstanding,
+   count(e.id) FILTER(WHERE e.remaining<>0 AND t.entry_id IS NULL)::int undocumented,
    (SELECT count(*) FROM finance_cb_statement_lines l WHERE statement_id=$2 AND NOT EXISTS(SELECT 1 FROM finance_cb_matches m WHERE m.line_id=l.id))::int unmatched
    FROM finance_cb_accounts a LEFT JOIN e ON true LEFT JOIN finance_cb_timing t ON t.entry_id=e.id WHERE a.id=$1 GROUP BY a.opening`,
     [s.account_id, id, s.ends],
@@ -404,6 +407,47 @@ export async function statementOperation(c: Context, r: Document) {
       bad('Select at least two entries for a grouped match.');
     return match(c, f.line, entries, r.id);
   }
+  if (r.kind === 'SPLIT_MATCH') {
+    const ids = field(f.lines, 'bank lines', 400000).split(',').map(uuid);
+    if (new Set(ids).size !== ids.length) bad('Choose distinct bank lines.');
+    const [entry] = await m.query(
+      `SELECT e.id,e.account_id,e.day::text,e.remaining_amount FROM finance_cb_entry_clearing e
+       JOIN finance_cb_accounts a ON a.id=e.account_id WHERE a.book_id=$1 AND e.id=$2 AND e.offset_id IS NULL AND e.remaining_amount<>0`,
+      [c.b.book_id, uuid(f.entry)],
+    );
+    if (!entry) conflict('Choose a cashbook entry with an outstanding amount.');
+    const matched = await m.query(
+      `WITH parts AS (
+         SELECT l.id,l.amount FROM finance_cb_statement_lines l JOIN finance_cb_statements s ON s.id=l.statement_id
+         WHERE l.id=ANY($1::uuid[]) AND s.account_id=$2 AND s.ends>=$3 AND s.signoff_id IS NULL AND s.withdrawn_id IS NULL
+           AND sign(l.amount)=sign($4::numeric) AND NOT EXISTS(SELECT 1 FROM finance_cb_matches x WHERE x.line_id=l.id)
+           AND NOT EXISTS(SELECT 1 FROM finance_cb_ap_proofs p WHERE p.line_id=l.id AND p.released_id IS NULL)
+         ORDER BY s.id,l.id FOR UPDATE OF s,l
+       ), totals AS (SELECT count(*) n,sum(amount) amount FROM parts)
+       INSERT INTO finance_cb_matches(line_id,entry_id,decision_id,amount)
+       SELECT p.id,$5,$6,p.amount FROM parts p CROSS JOIN totals t
+       WHERE t.n=cardinality($1::uuid[]) AND abs(t.amount)<=abs($4::numeric) RETURNING line_id`,
+      [
+        ids,
+        entry.account_id,
+        entry.day,
+        entry.remaining_amount,
+        entry.id,
+        r.id,
+      ],
+    );
+    if (!matched.length)
+      conflict(
+        'Select unused bank lines on this account in the same direction, within the outstanding amount.',
+      );
+    await m.query(
+      `UPDATE finance_cb_cheques ch SET state='CLEARED' FROM finance_cb_entry_clearing e
+       JOIN finance_cb_documents d ON d.journal_id=e.journal_id
+       WHERE e.id=$1 AND e.remaining_amount=0 AND ch.id=d.id AND ch.state IN ('ISSUED','PRESENTED')`,
+      [entry.id],
+    );
+    return;
+  }
   if (r.kind === 'END_RULE') {
     const deleted = await m.query(
       `WITH removed AS (DELETE FROM finance_cb_rules r USING finance_cb_accounts a WHERE r.account_id=a.id AND a.book_id=$1 AND r.decision_id=$2 RETURNING r.decision_id) SELECT * FROM removed`,
@@ -440,7 +484,7 @@ export async function statementOperation(c: Context, r: Document) {
   if (r.kind === 'MATCH') return match(c, f.line, f.entry, r.id);
   if (r.kind === 'TIMING') {
     const [e] = await m.query(
-      "SELECT e.id FROM finance_cb_entries e JOIN finance_cb_accounts a ON a.id=e.account_id WHERE e.id=$1 AND a.book_id=$2 AND e.offset_id IS NULL AND a.kind<>'TILL' AND NOT EXISTS(SELECT 1 FROM finance_cb_matches WHERE entry_id=e.id)",
+      "SELECT e.id FROM finance_cb_entry_clearing e JOIN finance_cb_accounts a ON a.id=e.account_id WHERE e.id=$1 AND a.book_id=$2 AND e.offset_id IS NULL AND a.kind<>'TILL' AND e.remaining_amount<>0",
       [uuid(f.entry), c.b.book_id],
     );
     if (!e)

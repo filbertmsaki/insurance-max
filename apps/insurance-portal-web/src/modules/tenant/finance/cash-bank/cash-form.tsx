@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import Decimal from 'decimal.js';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/modules/shared/api/client';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Field, DocumentField } from '../journals/GlFields';
 import type { Evidence, Option } from '../journals/gl-form';
 import { ApEvidenceUpload } from '../payables/ApEvidenceUpload';
+import { amountLabel } from '../payables/ap-export';
 export type Area = keyof typeof CASH_BANK_GROUPS;
 export interface CashRow {
   id: string;
@@ -160,6 +162,7 @@ const fields: Record<CashBankKind, string[]> = {
   EFT_RELEASE: ['target', 'description'],
   WITHDRAW_STATEMENT: ['statement', 'description'],
   GROUP_MATCH: ['line', 'entries'],
+  SPLIT_MATCH: ['entry', 'lines'],
   LINK_PLAN: ['target', 'entry'],
   UNLINK_PLAN: ['target', 'entry'],
   PLAN: ['account', 'direction', 'amount', 'due', 'description'],
@@ -169,6 +172,7 @@ const fields: Record<CashBankKind, string[]> = {
 export const labels: Record<string, string> = {
   replaces: 'Replace unsigned statement (optional)',
   entries: 'Cashbook entries in this bank line',
+  lines: 'Bank lines for this cashbook entry',
   sourceNumber: 'Debited account number on bank evidence',
   status: 'Cheque leaf condition',
   master: 'Registered bank or cash office',
@@ -242,6 +246,11 @@ const options = (v: string[]): Option[] =>
   v.map((value) => ({ value, label: value }));
 const mapped = <T extends CashRow>(rows: T[], label: (r: T) => string) =>
   rows.map((r) => ({ value: r.id, label: label(r) }));
+const CashAmount = Decimal.clone({ precision: 42 });
+const outstanding = (entry: CashRow) =>
+  new CashAmount(
+    String(entry.remaining_amount ?? (entry.line_id ? 0 : entry.amount)),
+  );
 export function CashForm({
   w,
   kind,
@@ -302,6 +311,7 @@ export function CashForm({
         ? { apVoucher: '', replaces: '', chequebook: '' }
         : {}),
       ...(k === 'line' ? { entries: '', entry: '' } : {}),
+      ...(k === 'entry' && kind === 'SPLIT_MATCH' ? { lines: '' } : {}),
       ...(k === 'target' ? { entry: '', line: '' } : {}),
       ...(line
         ? {
@@ -321,6 +331,29 @@ export function CashForm({
       w.documents.filter((x) => x.state === 'POSTED' && kinds.includes(x.kind)),
       (x) => String(x.reference) + ' · ' + x.kind,
     );
+  const splitEntry =
+    kind === 'SPLIT_MATCH' && w.entries.find((e) => e.id === f.entry);
+  const splitRemaining = splitEntry
+    ? outstanding(splitEntry)
+    : new CashAmount(0);
+  const selectedLines = new Set(f.lines?.split(',').filter(Boolean) ?? []);
+  const eligibleLines = splitEntry
+    ? w.lines.filter(
+        (l) =>
+          l.account_id === splitEntry.account_id &&
+          !l.entry_id &&
+          !l.proof_id &&
+          !l.signoff_id &&
+          String(l.statement_end ?? l.day) >= String(splitEntry.day) &&
+          CashAmount.sign(String(l.amount)) === CashAmount.sign(splitRemaining),
+      )
+    : [];
+  const selectedParts = eligibleLines.filter((l) => selectedLines.has(l.id));
+  const selectedAmount = selectedParts.reduce(
+    (sum, l) => sum.plus(String(l.amount)),
+    new CashAmount(0),
+  );
+  const splitExceeded = selectedAmount.abs().gt(splitRemaining.abs());
   const choices = (k: string): Option[] | undefined => {
     if (k === 'type') return options(['BANK', 'TILL', 'WALLET']);
     if (k === 'currency') return options(w.currencies);
@@ -436,6 +469,28 @@ export function CashForm({
                 Number(x.amount) < 0),
           ),
         (x) => x.day + ' · ' + x.reference + ' · ' + x.amount,
+      );
+    if (k === 'lines')
+      return mapped(
+        eligibleLines,
+        (x) =>
+          x.day + ' · ' + x.reference + ' · ' + amountLabel(String(x.amount)),
+      );
+    if (k === 'entry' && (kind === 'SPLIT_MATCH' || kind === 'TIMING'))
+      return mapped(
+        w.entries.filter(
+          (e) =>
+            !e.offset_id &&
+            !outstanding(e).isZero() &&
+            w.accounts.some((a) => a.id === e.account_id && a.kind !== 'TILL'),
+        ),
+        (e) =>
+          e.code +
+          ' · ' +
+          e.reference +
+          ' · ' +
+          amountLabel(outstanding(e).toFixed()) +
+          ' outstanding',
       );
     if (k === 'entry' && (kind === 'LINK_PLAN' || kind === 'UNLINK_PLAN')) {
       const plan = w.documents.find((d) => d.id === f.target);
@@ -636,12 +691,12 @@ export function CashForm({
           type="date"
         />
         {visible.map((k) => {
-          if (k === 'entries') {
-            const selected = f.entries?.split(',').filter(Boolean) ?? [];
+          if (k === 'entries' || k === 'lines') {
+            const selected = f[k]?.split(',').filter(Boolean) ?? [];
             return (
               <fieldset key={k} className="space-y-1 sm:col-span-2">
                 <legend>{labels[k]}</legend>
-                {f.line ? (
+                {(k === 'lines' ? f.entry : f.line) ? (
                   (choices(k) ?? []).map((o) => (
                     <label className="block text-sm" key={o.value}>
                       <input
@@ -661,7 +716,23 @@ export function CashForm({
                     </label>
                   ))
                 ) : (
-                  <p>Select a bank line to see its cashbook entries.</p>
+                  <p>
+                    {k === 'lines'
+                      ? 'Select a cashbook entry to see its bank lines.'
+                      : 'Select a bank line to see its cashbook entries.'}
+                  </p>
+                )}
+                {k === 'lines' && splitEntry && (
+                  <p role={splitExceeded ? 'alert' : 'status'}>
+                    {splitExceeded
+                      ? 'Selected lines exceed the outstanding amount.'
+                      : splitEntry.currency +
+                        ' ' +
+                        amountLabel(
+                          splitRemaining.minus(selectedAmount).toFixed(),
+                        ) +
+                        ' remaining after matching'}
+                  </p>
                 )}
               </fieldset>
             );
@@ -824,7 +895,17 @@ export function CashForm({
         documentType="CASH_BANK_EVIDENCE"
       />
       {fileError && <p role="alert">{fileError}</p>}
-      <Button disabled={busy || !reference.trim()} type="submit">
+      <Button
+        disabled={
+          busy ||
+          !reference.trim() ||
+          (kind === 'SPLIT_MATCH' &&
+            (!selectedParts.length ||
+              selectedParts.length !== selectedLines.size ||
+              splitExceeded))
+        }
+        type="submit"
+      >
         Submit for review
       </Button>
     </form>

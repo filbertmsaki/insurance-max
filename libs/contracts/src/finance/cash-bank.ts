@@ -49,6 +49,7 @@ export const CASH_BANK_GROUPS = {
     STATEMENT: 'Import bank statement',
     WITHDRAW_STATEMENT: 'Withdraw an unsigned statement',
     GROUP_MATCH: 'Match several entries to one bank line',
+    SPLIT_MATCH: 'Match one entry to split bank lines',
     MATCH: 'Match statement line',
     AUTO_MATCH: 'Match exact references',
     TIMING: 'Document outstanding item',

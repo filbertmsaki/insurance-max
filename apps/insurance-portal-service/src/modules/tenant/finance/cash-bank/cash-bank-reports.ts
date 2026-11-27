@@ -97,9 +97,11 @@ export async function positions(c: Context, asOf: string) {
     coalesce(t.total,0) in_transit,a.minimum_alert IS NOT NULL AND a.opening+coalesce(e.delta,0)-CASE WHEN a.kind='TILL' THEN 0 ELSE coalesce(e.uncleared_receipts,0)+coalesce(p.reserved,0) END<=a.minimum_alert low_balance,s.ends::text last_statement
     FROM finance_cb_accounts a LEFT JOIN reservations p ON p.account=a.id::text
     LEFT JOIN LATERAL(SELECT sum(v.amount) FILTER(WHERE NOT v.cutover) delta,
-      sum(v.amount) FILTER(WHERE ml.id IS NULL AND off.id IS NULL) uncleared,
-      sum(greatest(v.amount,0)) FILTER(WHERE ml.id IS NULL AND off.id IS NULL) uncleared_receipts
-      FROM finance_cb_entries v LEFT JOIN finance_cb_documents off ON off.id=v.offset_id AND off.day<=$2 LEFT JOIN finance_cb_matches mx ON mx.entry_id=v.id LEFT JOIN finance_cb_statement_lines ml ON ml.id=mx.line_id AND ml.day<=$2 WHERE v.account_id=a.id AND v.day<=$2)e ON true
+      sum(v.amount-coalesce(mx.matched,0)) FILTER(WHERE off.id IS NULL) uncleared,
+      sum(greatest(v.amount-coalesce(mx.matched,0),0)) FILTER(WHERE off.id IS NULL) uncleared_receipts
+      FROM finance_cb_entries v LEFT JOIN finance_cb_documents off ON off.id=v.offset_id AND off.day<=$2
+      LEFT JOIN LATERAL(SELECT sum(x.amount) matched FROM finance_cb_matches x JOIN finance_cb_statement_lines l ON l.id=x.line_id
+        WHERE x.entry_id=v.id AND l.day<=$2) mx ON true WHERE v.account_id=a.id AND v.day<=$2)e ON true
     LEFT JOIN LATERAL(SELECT sum(t.amount) total FROM finance_cb_transfers t JOIN finance_cb_documents d ON d.id=t.id LEFT JOIN finance_cb_documents r ON r.id=t.received_id WHERE source=a.id AND d.day<=$2 AND (r.id IS NULL OR r.day>$2))t ON true
     LEFT JOIN LATERAL(SELECT ends,closing FROM finance_cb_statements WHERE account_id=a.id AND ends<=$2 AND signoff_id IS NOT NULL ORDER BY ends DESC LIMIT 1)s ON true
     WHERE a.book_id=$1 AND a.starts<=$2 ORDER BY a.currency,a.code`,
@@ -114,24 +116,26 @@ export async function forecast(c: Context, from: string, to: string) {
   const cutoff = new Date(Date.parse(from) - 86400000)
     .toISOString()
     .slice(0, 10);
+  // Actual cash comes from the selected dates. Only the balances still outstanding
+  // at the end of those dates belong in the expected flows.
   const rows = await c.m.query(
     `WITH ar AS (
-    SELECT h.invoice_id,h.currency,sum(h.invoice_delta) n FROM finance_ar_activity($1,$5) h WHERE h.day<$3 GROUP BY h.invoice_id,h.currency),
-    ap AS (SELECT i.id,i.reference,i.currency,i.due_date,sum(m.amount) n FROM finance_ap_movements m JOIN finance_ap_status d ON d.id=m.document_id JOIN finance_ap_records i ON i.id=m.item_id WHERE i.book_id=$2 AND d.posted_date<$3 AND i.kind IN ('BILL','EXPENSE','RETIREMENT') GROUP BY i.id),
+    SELECT h.invoice_id,h.currency,min(h.day) first_day,sum(h.invoice_delta) n FROM finance_ar_activity($1,$5) h WHERE h.day<=$4 GROUP BY h.invoice_id,h.currency),
+    ap AS (SELECT i.id,i.reference,i.currency,i.due_date,min(d.posted_date) first_day,sum(m.amount) n FROM finance_ap_movements m JOIN finance_ap_status d ON d.id=m.document_id JOIN finance_ap_records i ON i.id=m.item_id WHERE i.book_id=$2 AND d.posted_date<=$4 AND i.kind IN ('BILL','EXPENSE','RETIREMENT') GROUP BY i.id),
     realized AS (SELECT * FROM finance_cb_plan_entries($2,$4)),
     plans AS (SELECT d.id,d.reference,a.currency,(d.input->'fields'->>'due')::date due,
       CASE WHEN d.input->'fields'->>'direction'='INFLOW' THEN 1 ELSE -1 END side,(d.input->'fields'->>'amount')::numeric planned,
-      EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.book_id=$2 AND x.kind='CANCEL_PLAN' AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<=$3) cancelled
-      FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=lower(d.input->'fields'->>'account') WHERE d.book_id=$2 AND d.kind='PLAN' AND d.state='POSTED' AND d.day<=$3),
+      EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.book_id=$2 AND x.kind='CANCEL_PLAN' AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<=$4) cancelled
+      FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=lower(d.input->'fields'->>'account') WHERE d.book_id=$2 AND d.kind='PLAN' AND d.state='POSTED' AND d.day<=$4),
     remaining AS (SELECT p.*,p.planned-coalesce((SELECT sum(x.amount)*p.side FROM realized x WHERE x.plan_id=p.id),0) rest FROM plans p),
     items AS (
-    SELECT 'Receivable' source,i.invoice_no reference,ar.currency,greatest(coalesce(i.due_date,$3),$3) due,ar.n amount FROM ar JOIN invoices i ON i.id=ar.invoice_id WHERE ar.n>0
-    UNION ALL SELECT 'Supplier or employee payable',reference,currency,greatest(coalesce(due_date,$3),$3),-n FROM ap WHERE n>0
-    UNION ALL SELECT 'Scheduled advance or imprest',v.reference,v.currency,greatest(v.due_date,$3),-v.amount FROM finance_ap_status v WHERE v.book_id=$2 AND v.kind IN ('ADVANCE','IMPREST') AND v.state='APPROVED' AND v.doc_date<=$3 AND (v.posted_date IS NULL OR v.posted_date>=$3)
-    UNION ALL SELECT 'Claim',disbursement_no,currency_code,$3::date,-amount FROM claim_disbursements WHERE company_id=$1 AND (requested_at AT TIME ZONE $5)::date<$3 AND (confirmed_at IS NULL OR (confirmed_at AT TIME ZONE $5)::date>=$3) AND (failed_at IS NULL OR (failed_at AT TIME ZONE $5)::date>=$3) AND status<>'CANCELLED'
+    SELECT 'Receivable' source,i.invoice_no reference,ar.currency,greatest(i.due_date,ar.first_day,$3) due,ar.n amount FROM ar JOIN invoices i ON i.id=ar.invoice_id WHERE ar.n>0
+    UNION ALL SELECT 'Supplier or employee payable',reference,currency,greatest(due_date,first_day,$3),-n FROM ap WHERE n>0
+    UNION ALL SELECT 'Scheduled advance or imprest',v.reference,v.currency,greatest(v.due_date,v.doc_date,$3),-v.amount FROM finance_ap_status v WHERE v.book_id=$2 AND v.kind IN ('ADVANCE','IMPREST') AND v.state='APPROVED' AND v.doc_date<=$4 AND (v.posted_date IS NULL OR v.posted_date>$4)
+    UNION ALL SELECT 'Claim',disbursement_no,currency_code,greatest((requested_at AT TIME ZONE $5)::date,$3),-amount FROM claim_disbursements WHERE company_id=$1 AND (requested_at AT TIME ZONE $5)::date<=$4 AND (confirmed_at IS NULL OR (confirmed_at AT TIME ZONE $5)::date>$4) AND (failed_at IS NULL OR (failed_at AT TIME ZONE $5)::date>$4) AND status<>'CANCELLED'
     UNION ALL SELECT 'Treasury plan',reference,currency,greatest(due,$3),rest*side FROM remaining WHERE rest>0 AND NOT cancelled
     UNION ALL SELECT 'Realized treasury plan',p.reference,p.currency,x.day,x.amount FROM realized x JOIN plans p ON p.id=x.plan_id WHERE x.day BETWEEN $3 AND $4
-    UNION ALL SELECT 'EFT instruction',d.reference,a.currency,greatest(d.day,$3),-(d.input->'fields'->>'amount')::numeric FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=d.input->'fields'->>'account' WHERE d.book_id=$2 AND d.kind='EFT' AND d.state='POSTED' AND coalesce(d.input->'fields'->>'apVoucher','')='' AND d.day<=$3 AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<$3))
+    UNION ALL SELECT 'EFT instruction',d.reference,a.currency,greatest(d.day,$3),-(d.input->'fields'->>'amount')::numeric FROM finance_cb_documents d JOIN finance_cb_accounts a ON a.id::text=d.input->'fields'->>'account' WHERE d.book_id=$2 AND d.kind='EFT' AND d.state='POSTED' AND coalesce(d.input->'fields'->>'apVoucher','')='' AND d.day<=$4 AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text AND x.day<=$4))
     SELECT source,reference,currency,due::text,amount::text FROM items WHERE due<=$4 ORDER BY due,source,reference`,
     [c.b.company_id, c.b.book_id, from, to, c.b.timezone],
   );
@@ -141,7 +145,7 @@ export async function forecast(c: Context, from: string, to: string) {
     [c.b.book_id, from],
   );
   const actual = await c.m.query(
-    `SELECT a.currency,e.day::text,sum(greatest(e.amount,0)) inflow,sum(greatest(-e.amount,0)) outflow FROM finance_cb_entries e JOIN finance_cb_accounts a ON a.id=e.account_id LEFT JOIN finance_cb_documents d ON d.journal_id=e.journal_id LEFT JOIN finance_cb_documents orig ON d.kind='REVERSE' AND orig.id::text=d.input->'fields'->>'target' WHERE a.book_id=$1 AND e.day BETWEEN $2 AND $3 AND NOT e.cutover AND NOT EXISTS(SELECT 1 FROM finance_cb_documents off WHERE off.id=e.offset_id AND off.day<=$3) AND coalesce(orig.kind,d.kind,'') NOT IN ('TRANSFER','WITHDRAW','DEPOSIT','REPLENISH','WALLET_SETTLE','RECEIVE') GROUP BY a.currency,e.day ORDER BY e.day`,
+    `SELECT a.currency,e.day::text,sum(greatest(e.amount,0)) inflow,sum(greatest(-e.amount,0)) outflow FROM finance_cb_entries e JOIN finance_cb_accounts a ON a.id=e.account_id LEFT JOIN finance_cb_documents d ON d.journal_id=e.journal_id LEFT JOIN finance_cb_documents orig ON d.kind='REVERSE' AND orig.id::text=d.input->'fields'->>'target' WHERE a.book_id=$1 AND e.day BETWEEN $2 AND $3 AND NOT e.cutover AND coalesce(orig.kind,d.kind,'') NOT IN ('TRANSFER','WITHDRAW','DEPOSIT','REPLENISH','WALLET_SETTLE','RECEIVE') GROUP BY a.currency,e.day ORDER BY e.day`,
     [c.b.book_id, from, to],
   );
   const currencies = Array.from(
@@ -213,28 +217,28 @@ function projection(
   items: Expected[],
   actual: Observed[],
 ) {
-  const amounts = items.map((x) => new Decimal(x.amount));
-  const realized = items
-    .filter((x) => x.source === 'Realized treasury plan')
+  // Realized plan details explain the link to a cashbook movement. The cashbook counts it once.
+  const expected = items
+    .filter((x) => x.source !== 'Realized treasury plan')
     .map((x) => new Decimal(x.amount));
-  const inflow = sum(amounts.filter((n) => n.gt(0))),
-    outflow = sum(amounts.filter((n) => n.lt(0))).abs(),
+  const expectedInflow = sum(expected.filter((n) => n.gt(0))),
+    expectedOutflow = sum(expected.filter((n) => n.lt(0))).abs(),
+    actualInflow = sum(actual.map((x) => x.inflow)),
+    actualOutflow = sum(actual.map((x) => x.outflow)),
+    inflow = expectedInflow.plus(actualInflow),
+    outflow = expectedOutflow.plus(actualOutflow),
     net = inflow.minus(outflow);
   return {
     currency,
     opening: opening.toFixed(),
     inflow: inflow.toFixed(),
     outflow: outflow.toFixed(),
-    expectedInflow: inflow
-      .minus(sum(realized.filter((n) => n.gt(0))))
-      .toFixed(),
-    expectedOutflow: outflow
-      .minus(sum(realized.filter((n) => n.lt(0))).abs())
-      .toFixed(),
+    expectedInflow: expectedInflow.toFixed(),
+    expectedOutflow: expectedOutflow.toFixed(),
     net: net.toFixed(),
     closing: opening.plus(net).toFixed(),
-    actualInflow: sum(actual.map((x) => x.inflow)).toFixed(),
-    actualOutflow: sum(actual.map((x) => x.outflow)).toFixed(),
+    actualInflow: actualInflow.toFixed(),
+    actualOutflow: actualOutflow.toFixed(),
   };
 }
 interface AccountPosition {

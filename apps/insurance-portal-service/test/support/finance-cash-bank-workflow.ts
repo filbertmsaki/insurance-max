@@ -1,4 +1,5 @@
 import { FinanceCashBankControls1800200000000 } from '../../src/database/migrations/1800200000000-FinanceCashBankControls';
+import { FinanceCashBankSplitMatches1800300000000 } from '../../src/database/migrations/1800300000000-FinanceCashBankSplitMatches';
 import { randomUUID } from 'node:crypto';
 import { fixtureBank } from './finance-bank-observation-fixture';
 import type { DataSource } from 'typeorm';
@@ -29,6 +30,13 @@ export async function exerciseCashBank(f: {
 }) {
   const { maker, checker, deputy, today, post, call } = f;
   const workspace = () => call(checker, 'cash-bank?' + f.query);
+  const forecastDay = async (day: string, through = day) =>
+    (
+      await call(
+        checker,
+        'cash-bank/forecast?' + f.query + '&from=' + day + '&to=' + through,
+      )
+    ).totals.find((x: any) => x.currency === 'TZS');
   let seq = 0;
   const input = (
     kind: CashBankKind,
@@ -256,6 +264,10 @@ export async function exerciseCashBank(f: {
       finance_dimensions: { COST_CENTRE: 'HQ', BRANCH: f.branch },
     });
     await approveJournal(issue.journal_candidate_id);
+    const horizon = new Date(Date.parse(today) + 365 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    const expected = await forecastDay(today, horizon);
     const payment = await call(maker, 'payment-transactions/manual', {
       invoice_id: invoice.id,
       customer_id: f.customer,
@@ -284,6 +296,14 @@ export async function exerciseCashBank(f: {
     );
     expect(entries).toHaveLength(1);
     expect(Number(entries[0].amount)).toBe(100);
+    const collected = await forecastDay(today, horizon);
+    expect(
+      Number(expected.expectedInflow) - Number(collected.expectedInflow),
+    ).toBe(100);
+    expect(Number(collected.actualInflow) - Number(expected.actualInflow)).toBe(
+      100,
+    );
+    expect(collected.closing).toBe(expected.closing);
   }
   await customerReceipt('CASH', till);
   await customerReceipt('MOBILE_MONEY', wallet);
@@ -664,10 +684,19 @@ export async function exerciseCashBank(f: {
       (e: any) => e.journal_id === payableJournal,
     ),
   ).toHaveLength(1);
+  const beforeWire = await forecastDay(today);
   await run('EFT_SETTLE', {
     target: eft,
     line: ls.find((x: any) => x.reference === 'EFT-1').id,
   });
+  const settledWire = await forecastDay(today);
+  expect(
+    Number(beforeWire.expectedOutflow) - Number(settledWire.expectedOutflow),
+  ).toBe(5000);
+  expect(
+    Number(settledWire.actualOutflow) - Number(beforeWire.actualOutflow),
+  ).toBe(5000);
+  expect(settledWire.closing).toBe(beforeWire.closing);
   await run('FEE', {
     account: bankAccount,
     amount: '50',
@@ -820,6 +849,8 @@ export async function exerciseCashBank(f: {
   await legacy.startTransaction();
   try {
     const controls = new FinanceCashBankControls1800200000000();
+    const splitMatches = new FinanceCashBankSplitMatches1800300000000();
+    await splitMatches.down(legacy);
     await controls.down(legacy);
     await legacy.query(
       `INSERT INTO finance_cb_documents(company_id,book_id,kind,reference,day,input,request_key,request_hash,maker_id,maker_person,reviewer_id,reviewer_person,reviewed_at,state)
@@ -832,6 +863,11 @@ export async function exerciseCashBank(f: {
       [bankAccount],
     );
     await controls.up(legacy);
+    await splitMatches.up(legacy);
+    const [backfilled] = await legacy.query(
+      'SELECT count(*)::int n FROM finance_cb_matches m JOIN finance_cb_entries e ON e.id=m.entry_id WHERE m.amount IS DISTINCT FROM e.amount',
+    );
+    expect(backfilled.n).toBe(0);
     const [historic] = await legacy.query(
       'SELECT eft_export FROM finance_cb_documents WHERE id=$1',
       [eft],
@@ -913,6 +949,77 @@ export async function exerciseCashBank(f: {
   expect(
     (await workspace()).statements.find((x: any) => x.id === typo).withdrawn_id,
   ).toBeTruthy();
+
+  // A bank may clear the rest of a deposit after the previous statement is signed.
+  const openingEntries = (await workspace()).entries;
+  const carried = openingEntries.find(
+    (x: any) => x.account_id === claims && x.reference === 'OLD-DEPOSIT',
+  );
+  const carriedDebit = openingEntries.find(
+    (x: any) => x.account_id === claims && x.reference === 'OLD-PAYMENT',
+  );
+  const afterDay = (day: string) =>
+    new Date(Date.parse(day) + 86400000).toISOString().slice(0, 10);
+  let priorClosing = 150000000;
+  let firstPart = '';
+  let partDay = tomorrow;
+  for (const amount of [4000000, 6000000]) {
+    partDay = afterDay(partDay);
+    const payment = -amount / 2;
+    const stmt = await run(
+      'STATEMENT',
+      {
+        account: claims,
+        from: partDay,
+        to: partDay,
+        opening: String(priorClosing),
+        closing: String(priorClosing + amount + payment),
+        csv: [
+          header,
+          [partDay, 'BANK-PART', amount].join(','),
+          [partDay, 'PAYMENT-PART', payment].join(','),
+        ].join('\n'),
+      },
+      undefined,
+      partDay,
+    );
+    const statementParts = (await workspace()).lines.filter(
+      (x: any) => x.statement_id === stmt,
+    );
+    const line = statementParts.find((x: any) => x.reference === 'BANK-PART');
+    const debitPart = statementParts.find(
+      (x: any) => x.reference === 'PAYMENT-PART',
+    );
+    await run(
+      'SPLIT_MATCH',
+      { entry: carried.id, lines: line.id },
+      undefined,
+      partDay,
+    );
+    await run(
+      'SPLIT_MATCH',
+      { entry: carriedDebit.id, lines: debitPart.id },
+      undefined,
+      partDay,
+    );
+    await run('SIGNOFF', { statement: stmt }, undefined, partDay);
+    const result = await call(
+      checker,
+      'cash-bank/statements/' + stmt + '?' + f.query,
+    );
+    expect(Number(result.difference)).toBe(0);
+    expect(Number(result.deposits)).toBe(amount === 4000000 ? 6000000 : 0);
+    expect(Number(result.outstanding)).toBe(amount === 4000000 ? 3000000 : 0);
+    await rejectedReview('UNMATCH', { line: line.id }, partDay);
+    firstPart ||= stmt;
+    priorClosing += amount + payment;
+  }
+  expect(
+    Number(
+      (await call(checker, 'cash-bank/statements/' + firstPart + '?' + f.query))
+        .deposits,
+    ),
+  ).toBe(6000000);
 
   const frozen = await run(
     'EFT',
@@ -1012,6 +1119,39 @@ export async function exerciseCashBank(f: {
     'FILE-PAY',
   );
   await post(maker, 'payables/' + pay.id + '/post', {}, 503);
+  await run('OPEN', { account: till, amount: String(await cash()) });
+  const beforeUnplanned = await forecastDay(today);
+  const unplanned = await run(
+    'RECEIPT',
+    { account: till, amount: '25000', role: 'FEES' },
+    'UNPLANNED-CASH',
+  );
+  const withReceipt = await forecastDay(today);
+  expect(
+    Number(withReceipt.actualInflow) - Number(beforeUnplanned.actualInflow),
+  ).toBe(25000);
+  expect(withReceipt.expectedInflow).toBe(beforeUnplanned.expectedInflow);
+  expect(Number(withReceipt.closing) - Number(beforeUnplanned.closing)).toBe(
+    25000,
+  );
+  const unplannedPayment = await run(
+    'PAYMENT',
+    { account: till, amount: '1000', role: 'INTERNET' },
+    'UNPLANNED-EXPENSE',
+  );
+  expect(
+    Number((await forecastDay(today)).closing) - Number(withReceipt.closing),
+  ).toBe(-1000);
+  await run('REVERSE', { target: unplannedPayment });
+  const slip = await run('DEPOSIT', {
+    account: till,
+    destination: other,
+    role: 'TRANSIT',
+    amount: '25000',
+  });
+  await run('RECEIVE', { target: slip }, 'DEPOSIT-25000');
+  expect((await forecastDay(today)).closing).toBe(withReceipt.closing);
+  await run('CLOSE', { account: till, amount: String(await cash()) });
   const wb = await workspace();
   const otherEntries = wb.entries.filter(
     (x: any) => x.account_id === other && !x.offset_id,
@@ -1027,9 +1167,14 @@ export async function exerciseCashBank(f: {
   const statementLines = [
     header,
     ...otherEntries
-      .filter((x: any) => !x.reference.startsWith('BATCH-'))
+      .filter(
+        (x: any) =>
+          !x.reference.startsWith('BATCH-') && x.reference !== 'DEPOSIT-25000',
+      )
       .map((x: any) => [today, x.reference, x.amount].join(',')),
     today + ',CHEQUE-BATCH,-300000',
+    today + ',SPLIT-A,10000',
+    today + ',SPLIT-B,15000',
     today + ',FILE-PAY,-750',
   ];
   const bankFile = {
@@ -1051,6 +1196,44 @@ export async function exerciseCashBank(f: {
   const debit = bankLines.find((x: any) => x.reference === 'FILE-PAY'),
     batchLine = bankLines.find((x: any) => x.reference === 'CHEQUE-BATCH');
   const entryIds = cheques.map((x: any) => x.id).join(',');
+  const deposit = otherEntries.find(
+    (x: any) => x.reference === 'DEPOSIT-25000',
+  );
+  const parts = bankLines.filter((x: any) => x.reference.startsWith('SPLIT-'));
+  const lines = parts.map((x: any) => x.id).join(',');
+  await rejectedReview('SPLIT_MATCH', {
+    entry: deposit.id,
+    lines: lines + ',' + bankLines.find((x: any) => x.reference === 'ERROR').id,
+  });
+  await rejectedReview('SPLIT_MATCH', { entry: deposit.id, lines: debit.id });
+  await rejectedReview('SPLIT_MATCH', { entry: deposit.id, lines: apLine.id });
+  const split = await run('SPLIT_MATCH', { entry: deposit.id, lines });
+  await post(checker, 'cash-bank/' + split + '/review', {
+    decision: 'approve',
+  });
+  await rejectedReview('SPLIT_MATCH', { entry: deposit.id, lines });
+  const depositRows = async () =>
+    (await workspace()).entries.filter((x: any) => x.id === deposit.id);
+  expect(
+    (await depositRows()).map((x: any) => Number(x.remaining_amount)),
+  ).toEqual([0]);
+  await run('UNMATCH', { line: parts[1].id });
+  expect(Number((await depositRows())[0].remaining_amount)).toBe(15000);
+  const partialPosition = (await workspace()).accounts.find(
+    (x: any) => x.id === other,
+  );
+  await run('TIMING', { entry: deposit.id });
+  await run('SPLIT_MATCH', { entry: deposit.id, lines: parts[1].id });
+  const fullPosition = (await workspace()).accounts.find(
+    (x: any) => x.id === other,
+  );
+  expect(fullPosition.balance).toBe(partialPosition.balance);
+  expect(Number(fullPosition.cleared) - Number(partialPosition.cleared)).toBe(
+    15000,
+  );
+  expect(
+    Number(fullPosition.available) - Number(partialPosition.available),
+  ).toBe(15000);
   await rejectedReview('MATCH', { line: batchLine.id, entry: cheques[0].id });
   await run('GROUP_MATCH', { line: batchLine.id, entries: entryIds });
   await run('UNMATCH', { line: batchLine.id });
@@ -1116,6 +1299,11 @@ export async function exerciseCashBank(f: {
   const activeLines = (await workspace()).lines.filter(
     (x: any) => x.statement_id === fixedFile,
   );
+  expect(
+    activeLines
+      .filter((x: any) => x.reference.startsWith('SPLIT-'))
+      .map((x: any) => x.entry_id),
+  ).toEqual([deposit.id, deposit.id]);
   expect(activeLines.find((x: any) => x.id === batchLine.id).match_count).toBe(
     2,
   );
@@ -1125,6 +1313,7 @@ export async function exerciseCashBank(f: {
   const reg = await call(maker, 'payables?' + f.query);
   expect(reg.statementVerifiedVouchers).toContain(pay.id);
   await post(maker, 'payables/' + pay.id + '/instructions', {}, 409);
+  const beforeSupplierPayment = await forecastDay(today);
   const [one, two] = await Promise.all([
     post(maker, 'payables/' + pay.id + '/post'),
     post(maker, 'payables/' + pay.id + '/post'),
@@ -1143,6 +1332,16 @@ export async function exerciseCashBank(f: {
   );
   expect(posted).toHaveLength(1);
   expect(posted[0].line_id).toBe(debit.id);
+  const afterSupplierPayment = await forecastDay(today);
+  expect(
+    Number(afterSupplierPayment.actualOutflow) -
+      Number(beforeSupplierPayment.actualOutflow),
+  ).toBe(750);
+  expect(
+    Number(beforeSupplierPayment.expectedOutflow) -
+      Number(afterSupplierPayment.expectedOutflow),
+  ).toBe(750);
+  expect(afterSupplierPayment.closing).toBe(beforeSupplierPayment.closing);
   await rejectedReview('UNMATCH', { line: debit.id });
   await run('AUTO_MATCH', { statement: fixedFile });
   const checkedFile = await call(
@@ -1286,4 +1485,26 @@ export async function exerciseCashBank(f: {
     fxResult.transfers.find((x: any) => x.id === finalTransfer).fx_id,
   ).toBeTruthy();
   expect(fxResult.accounts.find((x: any) => x.id === usd).active).toBe(false);
+  const beforeReversal = await forecastDay(tomorrow);
+  const historical = await forecastDay(today);
+  const openingCount = await cash();
+  await run(
+    'OPEN',
+    { account: till, amount: String(openingCount) },
+    undefined,
+    tomorrow,
+  );
+  await run('REVERSE', { target: unplanned }, undefined, tomorrow);
+  await run(
+    'CLOSE',
+    { account: till, amount: String(openingCount - 25000) },
+    undefined,
+    tomorrow,
+  );
+  const afterReversal = await forecastDay(tomorrow);
+  expect(afterReversal.opening).toBe(beforeReversal.opening);
+  expect(Number(afterReversal.closing) - Number(beforeReversal.closing)).toBe(
+    -25000,
+  );
+  expect((await forecastDay(today)).closing).toBe(historical.closing);
 }

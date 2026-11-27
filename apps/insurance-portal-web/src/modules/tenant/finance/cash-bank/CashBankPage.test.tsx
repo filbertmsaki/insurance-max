@@ -303,3 +303,67 @@ it('opens the original payable from a verified bank debit', async () => {
   ).toHaveAttribute('href', expect.stringContaining('voucher=' + voucher));
   expect(screen.queryByRole('button', { name: 'Export EFT file' })).toBeNull();
 });
+
+it('matches a deposit to split bank credits and shows the remaining amount', async () => {
+  const entry = {
+    id: uuid(41),
+    account_id: uuid(9),
+    reference: 'Deposit slip',
+    code: 'CRDB',
+    day: data.today,
+    currency: 'TZS',
+    amount: '25000',
+    remaining_amount: '25000',
+  };
+  const lines = [
+    { id: uuid(42), reference: 'Credit A', amount: '10000' },
+    { id: uuid(43), reference: 'Credit B', amount: '15000' },
+    { id: uuid(44), reference: 'Extra credit', amount: '1' },
+    { id: uuid(45), reference: 'Bank debit', amount: '-1' },
+    {
+      id: uuid(46),
+      reference: 'Reserved credit',
+      amount: '1',
+      proof_id: uuid(47),
+    },
+  ].map((l) => ({ ...l, account_id: entry.account_id, day: data.today }));
+  const send = mount('statements-and-reconciliation&action=SPLIT_MATCH', true, {
+    entries: [entry],
+    lines,
+  });
+  fireEvent.change(await screen.findByLabelText('Document reference'), {
+    target: { value: 'MATCH-SLIP' },
+  });
+  fireEvent.change(screen.getByLabelText('Cashbook entry'), {
+    target: { value: entry.id },
+  });
+  expect(
+    screen.queryByRole('checkbox', { name: /Bank debit|Reserved credit/ }),
+  ).toBeNull();
+  const submit = screen.getByRole('button', { name: 'Submit for review' });
+  expect(submit).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Credit A/ }));
+  expect(
+    screen.getByText('TZS 15,000 remaining after matching'),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Credit B/ }));
+  expect(
+    screen.getByText('TZS 0 remaining after matching'),
+  ).toBeInTheDocument();
+  const extra = screen.getByRole('checkbox', { name: /Extra credit/ });
+  fireEvent.click(extra);
+  expect(submit).toBeDisabled();
+  fireEvent.click(extra);
+  fireEvent.click(submit);
+  await waitFor(() =>
+    expect(send).toHaveBeenCalledWith(
+      '/tenant/finance/cash-bank',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          kind: 'SPLIT_MATCH',
+          fields: { entry: entry.id, lines: [uuid(42), uuid(43)].join(',') },
+        }),
+      }),
+    ),
+  );
+});

@@ -109,12 +109,26 @@ function reviewField(w: CashData, key: string, raw: string) {
         })}
       </ul>
     );
-  if (key === 'line') {
-    const line = w.lines.find((x) => x.id === raw);
-    const a = line && w.accounts.find((x) => x.id === line.account_id);
-    if (line)
-      return movementLabel({ ...line, code: a?.code, currency: a?.currency });
-  }
+  if (key === 'line' || key === 'lines')
+    return (
+      <ul>
+        {raw.split(',').map((id) => {
+          const line = w.lines.find((x) => x.id === id);
+          const a = line && w.accounts.find((x) => x.id === line.account_id);
+          return (
+            <li key={id}>
+              {line
+                ? movementLabel({
+                    ...line,
+                    code: a?.code,
+                    currency: a?.currency,
+                  })
+                : id}
+            </li>
+          );
+        })}
+      </ul>
+    );
   return (
     w.accounts.find((a) => a.id === raw)?.name ??
     w.documents.find((d) => d.id === raw)?.reference ??
@@ -479,7 +493,11 @@ function Workspace({
                 x.offset_id
                   ? 'Offset by correction'
                   : x.line_id
-                    ? 'Matched'
+                    ? Number(x.remaining_amount ?? 0) === 0
+                      ? 'Matched'
+                      : 'Partially matched · ' +
+                        value(x.remaining_amount) +
+                        ' outstanding'
                     : w.accounts.find((a) => a.id === x.account_id)?.kind ===
                         'TILL'
                       ? 'Cash desk'
