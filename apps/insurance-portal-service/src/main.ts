@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
-import { json } from 'express';
+import { json, urlencoded, type Request } from 'express';
 import helmet from 'helmet';
 
 import { buildUrl, readLoggerEnv } from '@insurance-max/shared-config';
@@ -34,19 +34,27 @@ async function bootstrap() {
   const globalPrefix = configService.get<string>('app.globalPrefix') || 'api';
   const version = configService.get<string>('app.version') || 'v1';
   const versionLabel = version.replace(/^v/i, '') || '1';
+  // Keep request.rawBody available (signed finance webhooks verify it).
+  const keepRawBody = (req: Request, _res: unknown, buf: Buffer) => {
+    (req as Request & { rawBody?: Buffer }).rawBody = buf;
+  };
   // A reconciled opening file can contain thousands of supplier invoices.
   app.use(
     `/${globalPrefix}/v${versionLabel}/tenant/finance/payables/opening-imports`,
-    json({ limit: '2mb' }),
+    json({ limit: '2mb', verify: keepRawBody }),
   );
   app.use(
     `/${globalPrefix}/v${versionLabel}/tenant/finance/customer-accounts/opening-imports`,
-    json({ limit: '4mb' }),
+    json({ limit: '4mb', verify: keepRawBody }),
   );
   app.use(
     `/${globalPrefix}/v${versionLabel}/tenant/finance/cash-bank`,
-    json({ limit: '4mb' }),
+    json({ limit: '4mb', verify: keepRawBody }),
   );
+  // Registering any jsonParser above makes Nest skip its own global body
+  // parsers, so register the defaults for every other route explicitly.
+  app.use(json({ verify: keepRawBody }));
+  app.use(urlencoded({ extended: true, verify: keepRawBody }));
   const appBaseUrl = configService.getOrThrow<string>('app.appUrl');
   const corsEnabled = configService.get<boolean>('cors.enabled') ?? true;
   const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;
