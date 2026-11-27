@@ -13,6 +13,7 @@ export const CASH_BANK_GROUPS = {
   },
   'Cash desk': {
     OPEN: 'Open cashier shift',
+    OPENING_COUNT: 'Record opening count',
     RECEIPT: 'General cash receipt',
     PAYMENT: 'Cash payment',
     COUNT: 'Record physical count',

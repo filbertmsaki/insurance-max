@@ -1,5 +1,6 @@
 import { FinanceCashBankControls1800200000000 } from '../../src/database/migrations/1800200000000-FinanceCashBankControls';
 import { FinanceCashBankSplitMatches1800300000000 } from '../../src/database/migrations/1800300000000-FinanceCashBankSplitMatches';
+import { FinanceCashOpeningCounts1800400000000 } from '../../src/database/migrations/1800400000000-FinanceCashOpeningCounts';
 import { randomUUID } from 'node:crypto';
 import { fixtureBank } from './finance-bank-observation-fixture';
 import type { DataSource } from 'typeorm';
@@ -30,13 +31,15 @@ export async function exerciseCashBank(f: {
 }) {
   const { maker, checker, deputy, today, post, call } = f;
   const workspace = () => call(checker, 'cash-bank?' + f.query);
-  const forecastDay = async (day: string, through = day) =>
-    (
-      await call(
-        checker,
-        'cash-bank/forecast?' + f.query + '&from=' + day + '&to=' + through,
-      )
-    ).totals.find((x: any) => x.currency === 'TZS');
+  const forecastRange = (day: string, through = day) =>
+    call(
+      checker,
+      'cash-bank/forecast?' + f.query + '&from=' + day + '&to=' + through,
+    );
+  const forecastDay = async (day: string, through = day, currency = 'TZS') =>
+    (await forecastRange(day, through)).totals.find(
+      (x: any) => x.currency === currency,
+    );
   let seq = 0;
   const input = (
     kind: CashBankKind,
@@ -145,6 +148,13 @@ export async function exerciseCashBank(f: {
   );
   expect(Number(preview.opening)).toBe(155000000);
   expect(preview.pendingReceipts).toBe(0);
+  const priorMonthEnd = new Date(
+    Date.parse(today.slice(0, 7) + '-01') - 86400000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  const beforeCutover = await forecastDay(priorMonthEnd, today);
+  const beforeDayOne = await forecastDay(today);
   const claims = await run(
     'ACCOUNT',
     {
@@ -158,6 +168,29 @@ export async function exerciseCashBank(f: {
     },
     'CLAIMS',
   );
+  const withCutover = await forecastRange(priorMonthEnd, today);
+  const throughCutover = withCutover.totals.find(
+    (x: any) => x.currency === 'TZS',
+  );
+  expect(
+    Number(throughCutover.accountOpenings) -
+      Number(beforeCutover.accountOpenings),
+  ).toBe(155000000);
+  expect(Number(throughCutover.closing) - Number(beforeCutover.closing)).toBe(
+    155000000,
+  );
+  expect(throughCutover.opening).toBe(beforeCutover.opening);
+  expect(throughCutover.actualInflow).toBe(beforeCutover.actualInflow);
+  const months = withCutover.periods.filter((x: any) => x.currency === 'TZS');
+  expect(months[0].accountOpenings).toBe('0');
+  expect(months[1].opening).toBe(months[0].closing);
+  expect(months[1].accountOpenings).toBe(throughCutover.accountOpenings);
+  expect(months[1].closing).toBe(throughCutover.closing);
+  const onCutover = await forecastDay(today);
+  expect(Number(onCutover.opening) - Number(beforeDayOne.opening)).toBe(
+    155000000,
+  );
+  expect(onCutover.accountOpenings).toBe('0');
   const example = await run('STATEMENT', {
     account: claims,
     from: today,
@@ -453,14 +486,34 @@ export async function exerciseCashBank(f: {
     subjectHash: rate.subjectHash,
     evidenceHash: f.document.hash,
   });
-  const converted = await run('TRANSFER', {
+  const beforeConversion = await forecastDay(today);
+  const beforeUsd = await forecastDay(today, today, 'USD');
+  const exchange = {
     account: other,
     destination: usd,
     role: 'TRANSIT',
     amount: '2500',
     destinationAmount: '0.99',
-  });
+  };
+  const cancelledConversion = await run('TRANSFER', exchange);
+  await run('REVERSE', { target: cancelledConversion });
+  expect((await forecastDay(today)).closing).toBe(beforeConversion.closing);
+  expect((await forecastDay(today, today, 'USD')).currencyExchange).toBe('0');
+  const converted = await run('TRANSFER', exchange);
+  expect((await forecastDay(today)).closing).toBe(beforeConversion.closing);
   await run('RECEIVE', { target: converted }, 'USD-ARRIVAL');
+  const afterConversion = await forecastDay(today);
+  const afterUsd = await forecastDay(today, today, 'USD');
+  expect(
+    Number(afterConversion.closing) - Number(beforeConversion.closing),
+  ).toBe(-2500);
+  expect(Number(afterUsd.closing) - Number(beforeUsd.closing)).toBeCloseTo(
+    0.99,
+  );
+  expect(afterConversion.currencyExchange).toBe('-2500');
+  expect(afterUsd.currencyExchange).toBe('0.99');
+  expect(afterConversion.actualOutflow).toBe(beforeConversion.actualOutflow);
+  expect(afterUsd.actualInflow).toBe(beforeUsd.actualInflow);
   expect(
     Number(
       (await workspace()).transfers.find((t: any) => t.id === converted)
@@ -850,6 +903,8 @@ export async function exerciseCashBank(f: {
   try {
     const controls = new FinanceCashBankControls1800200000000();
     const splitMatches = new FinanceCashBankSplitMatches1800300000000();
+    const openingCounts = new FinanceCashOpeningCounts1800400000000();
+    await openingCounts.down(legacy);
     await splitMatches.down(legacy);
     await controls.down(legacy);
     await legacy.query(
@@ -864,6 +919,11 @@ export async function exerciseCashBank(f: {
     );
     await controls.up(legacy);
     await splitMatches.up(legacy);
+    await openingCounts.up(legacy);
+    const [legacyCounts] = await legacy.query(
+      'SELECT count(*)::int n FROM finance_cb_count_register WHERE shift_id IS NOT NULL AND opening_account_id IS NULL',
+    );
+    expect(legacyCounts.n).toBeGreaterThan(0);
     const [backfilled] = await legacy.query(
       'SELECT count(*)::int n FROM finance_cb_matches m JOIN finance_cb_entries e ON e.id=m.entry_id WHERE m.amount IS DISTINCT FROM e.amount',
     );
@@ -1441,6 +1501,10 @@ export async function exerciseCashBank(f: {
   expect(remain(await nextForecast(), partialRef)).toBe(-18000);
   await run('CLOSE', { account: till, amount: String(await cash()) });
 
+  const nextDay = new Date(Date.parse(tomorrow) + 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const untilArrival = await forecastDay(tomorrow, nextDay, 'USD');
   const finalTransfer = await run(
     'TRANSFER',
     {
@@ -1453,7 +1517,22 @@ export async function exerciseCashBank(f: {
     'FINAL-USD',
     tomorrow,
   );
-  await run('RECEIVE', { target: finalTransfer }, 'FINAL-TZS', tomorrow);
+  const inTransit = await forecastDay(tomorrow, tomorrow, 'USD');
+  expect((await forecastDay(nextDay, nextDay, 'USD')).opening).toBe(
+    inTransit.closing,
+  );
+  await run('RECEIVE', { target: finalTransfer }, 'FINAL-TZS', nextDay);
+  expect((await forecastDay(tomorrow, tomorrow, 'USD')).closing).toBe(
+    inTransit.closing,
+  );
+  const arrival = await forecastDay(nextDay, nextDay, 'USD');
+  expect(arrival.currencyExchange).toBe('-0.99');
+  expect((await forecastDay(tomorrow, nextDay, 'USD')).closing).toBe(
+    arrival.closing,
+  );
+  expect(Number(untilArrival.closing) - Number(arrival.closing)).toBeCloseTo(
+    0.99,
+  );
   const lastStatement = await run(
     'STATEMENT',
     {
@@ -1478,7 +1557,7 @@ export async function exerciseCashBank(f: {
     'FX_SETTLE',
     { target: finalTransfer, role: 'INTERNET' },
     undefined,
-    tomorrow,
+    nextDay,
   );
   const fxResult = await workspace();
   expect(
@@ -1507,4 +1586,129 @@ export async function exerciseCashBank(f: {
     -25000,
   );
   expect((await forecastDay(today)).closing).toBe(historical.closing);
+
+  // The till stays closed while its next cashier records and settles the opening difference.
+  const balanceAfterReversal = openingCount - 25000;
+  const expectedFloat = 400000;
+  const actualFloat = 390000;
+  const openAt = (amount: number) => ({
+    account: till,
+    amount: String(amount),
+  });
+  await run('OPEN', openAt(balanceAfterReversal), undefined, tomorrow);
+  if (balanceAfterReversal < expectedFloat) {
+    await run(
+      'RECEIPT',
+      { ...openAt(expectedFloat - balanceAfterReversal), role: 'FEES' },
+      undefined,
+      tomorrow,
+    );
+  } else if (balanceAfterReversal > expectedFloat) {
+    const deposit = await run(
+      'DEPOSIT',
+      {
+        ...openAt(balanceAfterReversal - expectedFloat),
+        destination: other,
+        role: 'TRANSIT',
+      },
+      undefined,
+      tomorrow,
+    );
+    await run('RECEIVE', { target: deposit }, undefined, tomorrow);
+  }
+  await run('CLOSE', openAt(expectedFloat), undefined, tomorrow);
+  await post(
+    checker,
+    'cash-bank',
+    { input: input('OPENING_COUNT', openAt(actualFloat), undefined, nextDay) },
+    403,
+  );
+  const initial = await post(maker, 'cash-bank', {
+    input: input('OPENING_COUNT', openAt(actualFloat - 1), undefined, nextDay),
+  });
+  expect(Number(initial.input.fields.expected)).toBe(expectedFloat);
+  await rejectedReview('OPEN', openAt(expectedFloat), nextDay);
+  await post(checker, 'cash-bank/' + initial.id + '/review', {
+    decision: 'approve',
+  });
+  const openingVarianceCount = await run(
+    'OPENING_COUNT',
+    openAt(actualFloat),
+    undefined,
+    nextDay,
+  );
+  expect(
+    (await workspace()).counts.find((x: any) => x.id === initial.id).ended_by,
+  ).toBe(openingVarianceCount);
+  await rejectedReview('OPEN', openAt(expectedFloat), nextDay);
+  await rejectedReview('OPEN', openAt(actualFloat), nextDay);
+  const variance = {
+    account: till,
+    target: openingVarianceCount,
+    role: 'INTERNET',
+    amount: '10000',
+  };
+  for (const wrong of [
+    { ...variance, target: initial.id },
+    { ...variance, amount: '9999' },
+  ])
+    await post(
+      maker,
+      'cash-bank',
+      { input: input('SHORTAGE', wrong, undefined, nextDay) },
+      409,
+    );
+  const trade = () =>
+    post(
+      maker,
+      'cash-bank',
+      {
+        input: input(
+          'RECEIPT',
+          { account: till, role: 'FEES', amount: '1' },
+          undefined,
+          nextDay,
+        ),
+      },
+      403,
+    );
+  await trade();
+  const shortage = await run('SHORTAGE', variance, undefined, nextDay);
+  await trade();
+  await post(
+    maker,
+    'cash-bank',
+    { input: input('SHORTAGE', variance, undefined, nextDay) },
+    409,
+  );
+  const afterShortage = await workspace();
+  const journal = afterShortage.documents.find(
+    (x: any) => x.id === shortage,
+  ).journal_id;
+  const entries = afterShortage.entries.filter(
+    (x: any) => x.journal_id === journal && x.account_id === till,
+  );
+  expect(entries).toHaveLength(1);
+  expect(Number(entries[0].amount)).toBe(-10000);
+  expect(entries[0].shift_id).toBeNull();
+  const opened = await run('OPEN', openAt(actualFloat), undefined, nextDay);
+  expect(
+    (await workspace()).counts.find((x: any) => x.id === openingVarianceCount)
+      .ended_by,
+  ).toBe(opened);
+  await run('CLOSE', openAt(actualFloat), undefined, nextDay);
+  const over = await run(
+    'OPENING_COUNT',
+    openAt(expectedFloat),
+    undefined,
+    nextDay,
+  );
+  await run(
+    'OVERAGE',
+    { ...variance, target: over, role: 'FEES' },
+    undefined,
+    nextDay,
+  );
+  await run('OPEN', openAt(expectedFloat), undefined, nextDay);
+  await run('CLOSE', openAt(expectedFloat), undefined, nextDay);
 }

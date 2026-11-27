@@ -17,6 +17,7 @@ import { Field } from '../journals/GlFields';
 import { downloadCsv, amountLabel } from '../payables/ap-export';
 import {
   CashForm,
+  countDifference,
   labels,
   type CashData,
   type Area,
@@ -331,6 +332,7 @@ function Workspace({
             w={w}
             kind={kind}
             company={company}
+            user={user}
             scope={s}
             refresh={refresh}
             busy={m.isPending}
@@ -406,11 +408,30 @@ function Workspace({
           />
           <h2 className="font-semibold">Physical counts</h2>
           <Table
-            columns={['Till', 'Expected', 'Counted']}
+            columns={[
+              'Till',
+              'Date',
+              'Count',
+              'Expected',
+              'Counted',
+              'Difference',
+              'Status',
+            ]}
             rows={w.counts.map((x) => [
               x.code,
+              x.day,
+              x.opening_account_id ? 'Before opening' : 'During shift',
               value(x.expected),
               value(x.counted),
+              value(countDifference(x).toFixed()),
+              x.ended_by
+                ? w.documents.find((d) => d.id === x.ended_by)?.kind === 'OPEN'
+                  ? 'Shift opened'
+                  : 'Recounted'
+                : x.adjustment_state ||
+                  (x.current_count && !countDifference(x).isZero()
+                    ? 'Variance to resolve'
+                    : 'Recorded'),
             ])}
           />
           <div className="flex gap-4">
@@ -941,7 +962,9 @@ function Treasury({
               'Opening',
               'Expected in',
               'Expected out',
-              'Projected net',
+              'Net cash flow',
+              'New account balances',
+              'Currency exchange',
               'Projected closing',
               'Actual in',
               'Actual out',
@@ -953,6 +976,8 @@ function Treasury({
                 'expectedInflow',
                 'expectedOutflow',
                 'net',
+                'accountOpenings',
+                'currencyExchange',
                 'closing',
                 'actualInflow',
                 'actualOutflow',
@@ -969,6 +994,8 @@ function Treasury({
                   'Opening',
                   'Expected in',
                   'Expected out',
+                  'New account balances',
+                  'Currency exchange',
                   'Projected closing',
                   'Actual in',
                   'Actual out',
@@ -980,6 +1007,8 @@ function Treasury({
                     'opening',
                     'expectedInflow',
                     'expectedOutflow',
+                    'accountOpenings',
+                    'currencyExchange',
                     'closing',
                     'actualInflow',
                     'actualOutflow',

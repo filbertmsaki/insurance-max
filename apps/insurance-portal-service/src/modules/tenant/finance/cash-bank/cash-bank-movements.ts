@@ -134,6 +134,7 @@ async function chequeNumber(c: Context, r: Document, a: Account) {
 export async function prepareMovement(c: Context, r: Document) {
   const f = r.input.fields,
     dims = r.input.dimensions || {};
+  let openingVariance = false;
   let a: Account,
     other = '',
     n: Decimal,
@@ -320,8 +321,11 @@ export async function prepareMovement(c: Context, r: Document) {
       }
       if (r.kind === 'SHORTAGE' || r.kind === 'OVERAGE') {
         const [cnt] = await c.m.query(
-          'SELECT x.* FROM finance_cb_counts x JOIN finance_cb_shifts s ON s.id=x.shift_id WHERE x.id=$1 AND s.account_id=$2 AND s.close_id IS NULL AND s.day=$3',
-          [uuid(f.target), a.id, r.day],
+          `SELECT x.* FROM finance_cb_count_register x JOIN finance_cb_cashiers assigned
+           ON assigned.account_id=x.account_id AND assigned.user_id=x.cashier AND assigned.active
+           WHERE x.id=$1 AND x.account_id=$2 AND x.day=$3 AND x.current_count AND x.cashier=$4
+             AND (x.adjustment_id IS NULL OR x.adjustment_id=$5)`,
+          [uuid(f.target), a.id, r.day, r.maker_id, r.id],
         );
         if (
           !cnt ||
@@ -329,6 +333,7 @@ export async function prepareMovement(c: Context, r: Document) {
           !new Decimal(cnt.counted).minus(cnt.expected).eq(n.times(dr ? 1 : -1))
         )
           conflict('Use a current physical count and its exact variance.');
+        openingVariance = !!cnt.opening_account_id;
       }
       other = await availableRole(
         c,
@@ -343,7 +348,7 @@ export async function prepareMovement(c: Context, r: Document) {
       );
     }
   }
-  await cashier(c, r, a);
+  if (!openingVariance) await cashier(c, r, a);
   if (r.day < a.starts) conflict('Use an accounting date on or after cutover.');
   if (a.kind === 'TILL') {
     const next = new Decimal(a.balance).plus(dr ? n : n.negated());
@@ -364,6 +369,7 @@ export async function prepareMovement(c: Context, r: Document) {
     currency: a.currency,
     lines: [line(a.role, dr), line(other, !dr)],
     original: null,
+    openingVariance,
   };
 }
 export async function openEft(c: Context, id: string) {

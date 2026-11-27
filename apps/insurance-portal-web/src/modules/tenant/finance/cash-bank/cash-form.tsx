@@ -86,6 +86,7 @@ const fields: Record<CashBankKind, string[]> = {
   ],
   DEACTIVATE: ['account'],
   OPEN: ['account', 'amount', 'denominations'],
+  OPENING_COUNT: ['account', 'amount', 'denominations'],
   CLOSE: ['account', 'amount', 'denominations'],
   COUNT: ['account', 'amount', 'denominations'],
   RECEIPT: ['account', 'role', 'amount', 'description'],
@@ -192,6 +193,7 @@ export const labels: Record<string, string> = {
   role: 'Counterpart GL role',
   purpose: 'Account purpose',
   opening: 'Opening balance',
+  expected: 'Book balance at count',
   institution: 'Registered bank or operator',
   number: 'Bank account or wallet number',
   office: 'Cash office',
@@ -247,6 +249,8 @@ const options = (v: string[]): Option[] =>
 const mapped = <T extends CashRow>(rows: T[], label: (r: T) => string) =>
   rows.map((r) => ({ value: r.id, label: label(r) }));
 const CashAmount = Decimal.clone({ precision: 42 });
+export const countDifference = (count: CashRow) =>
+  new CashAmount(String(count.counted)).minus(String(count.expected));
 const outstanding = (entry: CashRow) =>
   new CashAmount(
     String(entry.remaining_amount ?? (entry.line_id ? 0 : entry.amount)),
@@ -255,6 +259,7 @@ export function CashForm({
   w,
   kind,
   company,
+  user,
   scope,
   save,
   refresh,
@@ -263,6 +268,7 @@ export function CashForm({
   w: CashData;
   kind: CashBankKind;
   company: string;
+  user: string;
   scope: { bookId: string; legalEntityId: string };
   save: (v: CashBankInput) => Promise<unknown>;
   refresh: () => Promise<unknown>;
@@ -298,6 +304,7 @@ export function CashForm({
   });
   const key = useRef(crypto.randomUUID());
   const [mapping, showMapping] = useState(false);
+  const variance = kind === 'SHORTAGE' || kind === 'OVERAGE';
   const change = (k: string, v: string) => {
     key.current = crypto.randomUUID();
     const line =
@@ -305,10 +312,16 @@ export function CashForm({
         ? w.lines.find((l) => l.id === v)
         : undefined;
     if (line) D(String(line.day));
+    const count =
+      k === 'target' && variance && w.counts.find((x) => x.id === v);
     F((prev) => ({
       ...prev,
       ...(k === 'account'
         ? { apVoucher: '', replaces: '', chequebook: '' }
+        : {}),
+      ...(k === 'account' && variance ? { target: '', amount: '' } : {}),
+      ...(k === 'target' && variance
+        ? { amount: count ? countDifference(count).abs().toFixed() : '' }
         : {}),
       ...(k === 'line' ? { entries: '', entry: '' } : {}),
       ...(k === 'entry' && kind === 'SPLIT_MATCH' ? { lines: '' } : {}),
@@ -395,10 +408,11 @@ export function CashForm({
     if (k === 'dateFormat') return options(['YYYY-MM-DD', 'DD/MM/YYYY']);
     if (k === 'role')
       return w.roles
-        .filter(
-          (x) =>
-            (kind !== 'ACCOUNT' && !transfers.includes(kind)) ||
-            x.accountType === 'ASSET',
+        .filter((x) =>
+          variance
+            ? x.accountType === (kind === 'SHORTAGE' ? 'EXPENSE' : 'INCOME')
+            : (kind !== 'ACCOUNT' && !transfers.includes(kind)) ||
+              x.accountType === 'ASSET',
         )
         .map((x) => ({ value: x.code, label: x.accountCode + ' · ' + x.code }));
     if (k === 'apVoucher')
@@ -414,6 +428,7 @@ export function CashForm({
       else if (
         [
           'OPEN',
+          'OPENING_COUNT',
           'COUNT',
           'CLOSE',
           'CASHIER',
@@ -546,10 +561,21 @@ export function CashForm({
           w.transfers.filter((x) => !x.received_id),
           (x) => x.reference + ' · ' + x.amount,
         );
-      if (kind === 'SHORTAGE' || kind === 'OVERAGE')
+      if (variance)
         return mapped(
-          w.counts,
-          (x) => x.code + ' · ' + x.counted + ' / ' + x.expected,
+          w.counts.filter(
+            (x) =>
+              x.current_count &&
+              !x.adjustment_id &&
+              x.account_id === f.account &&
+              x.cashier === user &&
+              x.day === day &&
+              countDifference(x).cmp(0) === (kind === 'SHORTAGE' ? -1 : 1),
+          ),
+          (x) =>
+            x.reference +
+            ' · ' +
+            amountLabel(countDifference(x).abs().toFixed()),
         );
       if (kind === 'EFT_RELEASE')
         return mapped(
@@ -686,6 +712,7 @@ export function CashForm({
           value={day}
           change={(v) => {
             D(v);
+            if (variance) F((prev) => ({ ...prev, target: '', amount: '' }));
             key.current = crypto.randomUUID();
           }}
           type="date"
@@ -792,7 +819,7 @@ export function CashForm({
           return (
             <Field
               key={k}
-              label={label}
+              label={k === 'target' && variance ? 'Physical count' : label}
               value={f[k] || ''}
               change={(v) => change(k, v)}
               options={choices(k)}
@@ -825,6 +852,13 @@ export function CashForm({
           }}
         />
       </div>
+      {(kind === 'OPEN' || kind === 'OPENING_COUNT') && (
+        <p className="text-sm">
+          If the opening cash differs from the book, select Record opening count
+          and attach the count sheet. After review, post the shortage or
+          overage, then open the shift at the verified amount.
+        </p>
+      )}
       {kind === 'EFT' && f.apVoucher && (
         <p className="text-sm">
           The instruction uses the voucher amount and approved beneficiary. For

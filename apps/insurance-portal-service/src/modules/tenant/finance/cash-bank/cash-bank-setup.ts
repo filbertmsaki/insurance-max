@@ -324,14 +324,14 @@ export async function setupOrShift(c: Context, r: Document) {
   }
   if (r.kind === 'DEACTIVATE') {
     const [pending] = await m.query(
-      `SELECT 1 WHERE EXISTS(SELECT 1 FROM finance_cb_shifts WHERE account_id=$1 AND close_id IS NULL) OR EXISTS(SELECT 1 FROM finance_cb_transfers WHERE $1 IN(source,destination) AND (received_id IS NULL OR (fx_difference<>0 AND fx_id IS NULL))) OR EXISTS(SELECT 1 FROM finance_cb_entry_clearing e WHERE e.account_id=$1 AND $2<>'TILL' AND e.offset_id IS NULL AND e.remaining_amount<>0) OR EXISTS(SELECT 1 FROM finance_cb_statements WHERE account_id=$1 AND signoff_id IS NULL AND withdrawn_id IS NULL)
+      `SELECT 1 WHERE EXISTS(SELECT 1 FROM finance_cb_shifts WHERE account_id=$1 AND close_id IS NULL) OR EXISTS(SELECT 1 FROM finance_cb_counts WHERE opening_account_id=$1 AND ended_by IS NULL) OR EXISTS(SELECT 1 FROM finance_cb_transfers WHERE $1 IN(source,destination) AND (received_id IS NULL OR (fx_difference<>0 AND fx_id IS NULL))) OR EXISTS(SELECT 1 FROM finance_cb_entry_clearing e WHERE e.account_id=$1 AND $2<>'TILL' AND e.offset_id IS NULL AND e.remaining_amount<>0) OR EXISTS(SELECT 1 FROM finance_cb_statements WHERE account_id=$1 AND signoff_id IS NULL AND withdrawn_id IS NULL)
       OR EXISTS(SELECT 1 FROM finance_cb_documents d WHERE (d.input->'fields'->>'account'=$1::text OR d.input->'fields'->>'destination'=$1::text) AND (d.state IN ('PENDING','APPROVED') AND d.id<>$3 OR d.kind='EFT' AND d.state='POSTED' AND NOT EXISTS(SELECT 1 FROM finance_cb_ap_proofs p WHERE p.eft_id=d.id AND p.entry_id IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM finance_cb_documents x WHERE x.kind IN ('EFT_CANCEL','EFT_SETTLE','EFT_LINK') AND x.state='POSTED' AND x.input->'fields'->>'target'=d.id::text)))
       OR EXISTS(SELECT 1 FROM finance_ap_status v WHERE v.book_id=$4 AND v.kind IN ('PAYMENT','ADVANCE','IMPREST') AND v.data->>'bankAccount'=$5 AND v.status IN ('PENDING','APPROVED','AWAITING_GL'))`,
       [ac.id, ac.kind, r.id, b.book_id, ac.account_code],
     );
     if (pending || !new Decimal(ac.balance).eq(0))
       conflict(
-        'Clear the account balance, commitments, shifts, transfer exchange differences and statement items before closure.',
+        'Resolve opening counts and clear the account balance, commitments, shifts, transfer exchange differences and statement items before closure.',
       );
     await m.query('UPDATE finance_cb_accounts SET active=false WHERE id=$1', [
       ac.id,
@@ -361,16 +361,70 @@ export async function setupOrShift(c: Context, r: Document) {
   );
   if (!allowed) denied('Only an assigned cashier can operate this till.');
   const counted = physicalCount(f, b.context.currencyScales[ac.currency]);
-  if (r.kind === 'OPEN') {
-    if (shift || !counted.eq(ac.balance))
-      conflict(
-        'Close the previous shift and count the full book float before opening.',
-      );
+  if (r.kind === 'OPEN' || r.kind === 'OPENING_COUNT') {
+    if (shift) conflict('Close the current shift before recording an opening.');
     const [later] = await m.query(
       'SELECT 1 FROM finance_cb_shifts WHERE account_id=$1 AND day>$2 UNION ALL SELECT 1 FROM finance_cb_entries WHERE account_id=$1 AND day>$2 LIMIT 1',
       [ac.id, r.day],
     );
     if (later) conflict('A later till movement or shift already exists.');
+    const [prior] = await m.query(
+      'SELECT id,day::text,sequence,cashier,counted,adjustment_state FROM finance_cb_count_register WHERE opening_account_id=$1 AND current_count',
+      [ac.id],
+    );
+    if (
+      prior &&
+      (prior.day > r.day ||
+        ['PENDING', 'APPROVED'].includes(prior.adjustment_state))
+    )
+      conflict(
+        'Complete or withdraw the outstanding variance and use the latest opening count date.',
+      );
+    if (r.kind === 'OPENING_COUNT') {
+      if (!new Decimal(ac.balance).eq(f.expected))
+        conflict(
+          'The book balance changed after this count. Withdraw it and record a fresh count.',
+        );
+      if (
+        prior &&
+        prior.day === r.day &&
+        BigInt(prior.sequence) > BigInt(r.sequence)
+      )
+        conflict('A more recent opening count has already been reviewed.');
+      await m.query(
+        'UPDATE finance_cb_counts SET ended_by=$2 WHERE opening_account_id=$1 AND ended_by IS NULL',
+        [ac.id, r.id],
+      );
+      await m.query(
+        'INSERT INTO finance_cb_counts(id,opening_account_id,expected,counted) VALUES($1,$2,$3,$4)',
+        [r.id, ac.id, ac.balance, counted.toFixed()],
+      );
+      return;
+    }
+    const [pending] = await m.query(
+      "SELECT 1 FROM finance_cb_documents WHERE book_id=$1 AND kind='OPENING_COUNT' AND state='PENDING' AND lower(input->'fields'->>'account')=$2 AND day<=$3 LIMIT 1",
+      [b.book_id, ac.id, r.day],
+    );
+    if (pending)
+      conflict('Review or withdraw the pending opening count first.');
+    if (
+      prior &&
+      (prior.day !== r.day ||
+        prior.cashier !== r.maker_id ||
+        !counted.eq(prior.counted))
+    )
+      conflict(
+        'Use your approved opening count for this day or submit a new physical count for review.',
+      );
+    if (!counted.eq(ac.balance))
+      conflict(
+        'Record an opening count and resolve the difference before opening the shift.',
+      );
+    if (prior)
+      await m.query('UPDATE finance_cb_counts SET ended_by=$2 WHERE id=$1', [
+        prior.id,
+        r.id,
+      ]);
     await m.query(
       'INSERT INTO finance_cb_shifts(id,account_id,cashier,day,opening) VALUES($1,$2,$3,$4,$5)',
       [r.id, ac.id, r.maker_id, r.day, counted.toFixed()],
@@ -393,12 +447,10 @@ export async function setupOrShift(c: Context, r: Document) {
         'Post or withdraw outstanding till vouchers before closing this shift.',
       );
   }
-  await m.query('INSERT INTO finance_cb_counts VALUES($1,$2,$3,$4)', [
-    r.id,
-    shift.id,
-    ac.balance,
-    counted.toFixed(),
-  ]);
+  await m.query(
+    'INSERT INTO finance_cb_counts(id,shift_id,expected,counted) VALUES($1,$2,$3,$4)',
+    [r.id, shift.id, ac.balance, counted.toFixed()],
+  );
   if (r.kind === 'CLOSE')
     await m.query(
       'UPDATE finance_cb_shifts SET close_id=$2,closing=$3 WHERE id=$1',

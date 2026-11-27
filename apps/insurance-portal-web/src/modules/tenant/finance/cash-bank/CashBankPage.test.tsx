@@ -85,7 +85,9 @@ function mount(
                 inflow: '380000000',
                 outflow: '310000000',
                 net: '70000000',
-                closing: '70000100',
+                accountOpenings: '155000000',
+                currencyExchange: '-2500',
+                closing: '224997600',
                 actualInflow: '0',
                 actualOutflow: '0',
               },
@@ -141,10 +143,90 @@ it('opens a specific setup task and sends the selected book and office details f
 it('offers treasury balances and forecasts to a reader', async () => {
   mount('treasury-and-forecasts', false);
   expect(await screen.findByText('70,000,000')).toBeInTheDocument();
+  expect(
+    screen.getByRole('columnheader', { name: 'New account balances' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('155,000,000')).toBeInTheDocument();
+  expect(
+    screen.getByRole('columnheader', { name: 'Currency exchange' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('-2,500')).toBeInTheDocument();
+  expect(screen.getByText('224,997,600')).toBeInTheDocument();
   expect(screen.getByText('CRDB Collections')).toBeInTheDocument();
   expect(
     screen.queryByRole('button', { name: 'Submit for review' }),
   ).toBeNull();
+});
+it('prepares the exact shortage for the cashier’s current opening count', async () => {
+  const till = uuid(51),
+    count = uuid(52);
+  const observation = {
+    id: count,
+    reference: 'OPEN-COUNT',
+    day: data.today,
+    cashier: user.id,
+    code: 'HQ',
+    expected: '400000',
+    counted: '390000',
+    opening_account_id: till,
+    account_id: till,
+    current_count: true,
+  };
+  const send = mount('cash-desk&action=SHORTAGE', true, {
+    accounts: [
+      {
+        id: till,
+        code: 'HQ',
+        name: 'Head office till',
+        kind: 'TILL',
+        currency: 'TZS',
+        active: true,
+      },
+    ],
+    roles: [
+      { code: 'CASH_SHORT', accountCode: '611009', accountType: 'EXPENSE' },
+    ],
+    counts: [
+      observation,
+      {
+        ...observation,
+        id: uuid(53),
+        reference: 'Earlier count',
+        current_count: false,
+      },
+    ],
+  });
+  fireEvent.change(await screen.findByLabelText('Account or till'), {
+    target: { value: till },
+  });
+  expect(screen.queryByRole('option', { name: /Earlier count/ })).toBeNull();
+  fireEvent.change(screen.getByLabelText('Physical count'), {
+    target: { value: count },
+  });
+  expect(screen.getByLabelText('Amount')).toHaveValue('10000');
+  fireEvent.change(screen.getByLabelText('Counterpart GL role'), {
+    target: { value: 'CASH_SHORT' },
+  });
+  fireEvent.change(screen.getByLabelText('Document reference'), {
+    target: { value: 'SHORT-01' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+  await waitFor(() =>
+    expect(send).toHaveBeenCalledWith(
+      '/tenant/finance/cash-bank',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          kind: 'SHORTAGE',
+          fields: {
+            account: till,
+            target: count,
+            role: 'CASH_SHORT',
+            amount: '10000',
+          },
+        }),
+      }),
+    ),
+  );
 });
 
 it('reads the certified GL amount for the selected account and fills the opening balance', async () => {

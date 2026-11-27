@@ -140,9 +140,19 @@ export async function forecast(c: Context, from: string, to: string) {
     [c.b.company_id, c.b.book_id, from, to, c.b.timezone],
   );
   const opening = await positions(c, cutoff);
-  const dayOne = await c.m.query(
-    'SELECT currency,sum(opening) amount FROM finance_cb_accounts WHERE book_id=$1 AND starts=$2 GROUP BY currency',
-    [c.b.book_id, from],
+  // In-transit cash is held in the sending currency until arrival. A cancelled
+  // dispatch returns that cash in the same currency and makes no exchange.
+  const changes: BalanceChange[] = await c.m.query(
+    `SELECT currency,starts::text AS day,'OPENING' AS kind,sum(opening) AS amount FROM finance_cb_accounts
+       WHERE book_id=$1 AND starts BETWEEN $2 AND $3 GROUP BY currency,starts
+     UNION ALL
+     SELECT leg.currency,arrival.day::text,'EXCHANGE',sum(leg.amount)
+       FROM finance_cb_documents arrival JOIN finance_cb_transfers t ON t.received_id=arrival.id
+       JOIN finance_cb_accounts src ON src.id=t.source JOIN finance_cb_accounts dst ON dst.id=t.destination
+       CROSS JOIN LATERAL (VALUES(src.currency,-t.amount),(dst.currency,t.destination_amount)) leg(currency,amount)
+       WHERE arrival.book_id=$1 AND arrival.kind='RECEIVE' AND arrival.state='POSTED'
+         AND arrival.day BETWEEN $2 AND $3 AND src.currency<>dst.currency GROUP BY leg.currency,arrival.day`,
+    [c.b.book_id, from, to],
   );
   const actual = await c.m.query(
     `SELECT a.currency,e.day::text,sum(greatest(e.amount,0)) inflow,sum(greatest(-e.amount,0)) outflow FROM finance_cb_entries e JOIN finance_cb_accounts a ON a.id=e.account_id LEFT JOIN finance_cb_documents d ON d.journal_id=e.journal_id LEFT JOIN finance_cb_documents orig ON d.kind='REVERSE' AND orig.id::text=d.input->'fields'->>'target' WHERE a.book_id=$1 AND e.day BETWEEN $2 AND $3 AND NOT e.cutover AND coalesce(orig.kind,d.kind,'') NOT IN ('TRANSFER','WITHDRAW','DEPOSIT','REPLENISH','WALLET_SETTLE','RECEIVE') GROUP BY a.currency,e.day ORDER BY e.day`,
@@ -150,24 +160,22 @@ export async function forecast(c: Context, from: string, to: string) {
   );
   const currencies = Array.from(
     new Set<string>(
-      [...opening, ...dayOne, ...rows, ...actual].map((x) => x.currency),
+      [...opening, ...changes, ...rows, ...actual].map((x) => x.currency),
     ),
   ).sort();
   const periods: ({ month: string } & ReturnType<typeof projection>)[] = [];
   const totals = currencies.map((currency) => {
+    const currencyChanges = changes.filter((x) => x.currency === currency);
+    const startsOnFirstDay = (x: BalanceChange) =>
+      x.kind === 'OPENING' && x.day === from;
+    const adjustments = currencyChanges.filter((x) => !startsOnFirstDay(x));
     const start = sum(
       opening
         .filter((x: AccountPosition) => x.currency === currency)
         .map((x: AccountPosition) =>
           new Decimal(x.balance).plus(x.in_transit).toFixed(),
         ),
-    ).plus(
-      sum(
-        dayOne
-          .filter((x: { currency: string }) => x.currency === currency)
-          .map((x: { amount: string }) => x.amount),
-      ),
-    );
+    ).plus(sum(currencyChanges.filter(startsOnFirstDay).map((x) => x.amount)));
     const items: Expected[] = rows.filter(
       (x: Expected) => x.currency === currency,
     );
@@ -182,6 +190,7 @@ export async function forecast(c: Context, from: string, to: string) {
         balance,
         items.filter((x) => x.due.startsWith(prefix)),
         observed.filter((x) => x.day.startsWith(prefix)),
+        adjustments.filter((x) => x.day.startsWith(prefix)),
       );
       periods.push({ month: prefix, ...bucket });
       balance = new Decimal(bucket.closing);
@@ -189,7 +198,7 @@ export async function forecast(c: Context, from: string, to: string) {
       next.setUTCMonth(next.getUTCMonth() + 1);
       month = next.toISOString().slice(0, 10);
     }
-    return projection(currency, start, items, observed);
+    return projection(currency, start, items, observed, adjustments);
   });
   return { from, to, totals, periods, items: rows, actual };
 }
@@ -205,6 +214,12 @@ type Observed = {
   inflow: string;
   outflow: string;
 };
+type BalanceChange = {
+  kind: 'OPENING' | 'EXCHANGE';
+  currency: string;
+  day: string;
+  amount: string;
+};
 function sum(values: Decimal.Value[]) {
   return values.reduce<Decimal>(
     (total, value) => total.plus(value),
@@ -216,6 +231,7 @@ function projection(
   opening: Decimal,
   items: Expected[],
   actual: Observed[],
+  changes: BalanceChange[],
 ) {
   // Realized plan details explain the link to a cashbook movement. The cashbook counts it once.
   const expected = items
@@ -228,6 +244,12 @@ function projection(
     inflow = expectedInflow.plus(actualInflow),
     outflow = expectedOutflow.plus(actualOutflow),
     net = inflow.minus(outflow);
+  const accountOpenings = sum(
+    changes.filter((x) => x.kind === 'OPENING').map((x) => x.amount),
+  );
+  const currencyExchange = sum(
+    changes.filter((x) => x.kind === 'EXCHANGE').map((x) => x.amount),
+  );
   return {
     currency,
     opening: opening.toFixed(),
@@ -236,7 +258,13 @@ function projection(
     expectedInflow: expectedInflow.toFixed(),
     expectedOutflow: expectedOutflow.toFixed(),
     net: net.toFixed(),
-    closing: opening.plus(net).toFixed(),
+    accountOpenings: accountOpenings.toFixed(),
+    currencyExchange: currencyExchange.toFixed(),
+    closing: opening
+      .plus(net)
+      .plus(accountOpenings)
+      .plus(currencyExchange)
+      .toFixed(),
     actualInflow: actualInflow.toFixed(),
     actualOutflow: actualOutflow.toFixed(),
   };

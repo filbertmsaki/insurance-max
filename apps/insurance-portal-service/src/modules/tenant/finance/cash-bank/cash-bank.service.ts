@@ -30,7 +30,7 @@ import {
   type Document,
   type Input,
 } from './cash-bank.types';
-import { cutover, setupOrShift } from './cash-bank-setup';
+import { cutover, physicalCount, setupOrShift } from './cash-bank-setup';
 import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
 import {
   channelOperation,
@@ -145,7 +145,7 @@ export class CashBankService {
             [b.book_id],
           ),
           counts: await m.query(
-            'SELECT x.*,a.code FROM finance_cb_counts x JOIN finance_cb_shifts s ON s.id=x.shift_id JOIN finance_cb_accounts a ON a.id=s.account_id WHERE a.book_id=$1',
+            'SELECT x.*,x.day::text FROM finance_cb_count_register x WHERE book_id=$1 ORDER BY x.day DESC,x.sequence DESC',
             [b.book_id],
           ),
           cashiers: await m.query(
@@ -292,9 +292,29 @@ export class CashBankService {
             'REPLENISH',
             'CLOSE',
             'COUNT',
+            'OPENING_COUNT',
           ].includes(v.kind)
         )
           await ownedEvidence(m, b, v.evidence);
+        if (v.kind === 'OPENING_COUNT') {
+          const till = await account(c, v.fields.account);
+          const [assigned] = await m.query(
+            'SELECT 1 FROM finance_cb_cashiers WHERE account_id=$1 AND user_id=$2 AND active',
+            [till.id, a.sourceUserId],
+          );
+          if (till.kind !== 'TILL' || !assigned)
+            denied('Only an assigned cashier can record an opening count.');
+          const [shift] = await m.query(
+            'SELECT 1 FROM finance_cb_shifts WHERE account_id=$1 AND close_id IS NULL',
+            [till.id],
+          );
+          if (shift || v.date < till.starts)
+            conflict(
+              'Record the opening count after activation and before the shift opens.',
+            );
+          physicalCount(v.fields, b.context.currencyScales[till.currency]);
+          v = { ...v, fields: { ...v.fields, expected: till.balance } };
+        }
         if (v.kind === 'STATEMENT') {
           const replaces = v.fields.replaces ? uuid(v.fields.replaces) : null;
           const [used] = await m.query(
@@ -310,6 +330,8 @@ export class CashBankService {
         }
         if (v.kind === 'EFT' && v.fields.apVoucher)
           v = { ...v, fields: await payableInstruction(c, v.fields) };
+        if (v.kind === 'SHORTAGE' || v.kind === 'OVERAGE')
+          v = { ...v, fields: { ...v.fields, target: uuid(v.fields.target) } };
         const [r] = await m.query(
           `INSERT INTO finance_cb_documents(book_id,company_id,kind,reference,day,input,request_key,request_hash,maker_id,maker_person) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *,day::text`,
           [
@@ -348,9 +370,9 @@ export class CashBankService {
             "SELECT s.id FROM finance_cb_accounts ac LEFT JOIN finance_cb_shifts s ON s.account_id=ac.id AND s.close_id IS NULL AND s.cashier=$3 AND s.day=$4 WHERE ac.book_id=$1 AND ac.kind='TILL' AND ac.role=ANY($2::text[])",
             [s.bookId, roles, a.sourceUserId, v.date],
           );
-          if (till && !till.id)
+          if (till && !till.id && !p.openingVariance)
             denied('Use the originating cashier and open shift.');
-          if (till)
+          if (till?.id)
             await m.query(
               'UPDATE finance_cb_documents SET shift_id=$2 WHERE id=$1',
               [r.id, till.id],
@@ -363,7 +385,7 @@ export class CashBankService {
   private async operational(c: Context, r: Document) {
     if (
       Object.hasOwn(CASH_BANK_GROUPS['Bank and till setup'], r.kind) ||
-      ['OPEN', 'CLOSE', 'COUNT'].includes(r.kind)
+      ['OPEN', 'OPENING_COUNT', 'CLOSE', 'COUNT'].includes(r.kind)
     )
       return setupOrShift(c, r);
     if (
